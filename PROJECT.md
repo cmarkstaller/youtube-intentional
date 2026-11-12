@@ -82,6 +82,7 @@ Initialized the project and verified content-script injection.
 - A temporary "YouTube Intentional active" badge (bottom-left, fades out after ~4 seconds) plus a console log confirm the script runs. The badge is a development aid and will be removed later.
 - README with install, build, and testing instructions; `.gitignore`; Git repository initialized.
 - Verified: type check and build pass; in Chrome 157 the extension loaded, the badge appeared on youtube.com and removed itself, and the console log appeared.
+- Manually verified by the user via `chrome://extensions` > Load unpacked in their own Chrome profile.
 - Known limitation (expected, addressed in Milestone 2): the script runs only on full page loads, so YouTube's in-app navigation does not re-trigger it.
 
 ## Current Milestone
