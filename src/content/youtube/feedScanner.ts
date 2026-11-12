@@ -24,8 +24,6 @@ const CARD_SELECTOR: Record<FeedPageType, string> = {
   search: SELECTORS.searchCard,
 };
 
-const RESCAN_DELAY_MS = 250;
-
 export function findFeedContainer(pageType: FeedPageType): HTMLElement | null {
   return document.querySelector<HTMLElement>(CONTAINER_SELECTOR[pageType]);
 }
@@ -60,18 +58,21 @@ export function scanFeed(pageType: FeedPageType, container: HTMLElement): FeedSc
  * function is called.
  *
  * Feed content renders after navigation finishes and keeps growing as the
- * user scrolls, so a MutationObserver re-scans (debounced). Until the page
- * container exists, the observer watches YouTube's page manager instead.
+ * user scrolls, so a MutationObserver re-scans. Scans run at most once per
+ * animation frame, before the browser paints, so callers can hide new cards
+ * before they are ever shown. Until the page container exists, the observer
+ * watches YouTube's page manager instead.
  */
 export function watchFeed(pageType: FeedPageType, onScan: (scan: FeedScan) => void): () => void {
   let container: HTMLElement | null = null;
-  let timer: number | undefined;
+  let frame: number | undefined;
 
   const scheduleScan = (): void => {
-    window.clearTimeout(timer);
-    timer = window.setTimeout(() => {
+    if (frame !== undefined) return;
+    frame = requestAnimationFrame(() => {
+      frame = undefined;
       if (container?.isConnected) onScan(scanFeed(pageType, container));
-    }, RESCAN_DELAY_MS);
+    });
   };
 
   const observer = new MutationObserver(() => {
@@ -105,6 +106,6 @@ export function watchFeed(pageType: FeedPageType, onScan: (scan: FeedScan) => vo
 
   return () => {
     observer.disconnect();
-    window.clearTimeout(timer);
+    if (frame !== undefined) cancelAnimationFrame(frame);
   };
 }

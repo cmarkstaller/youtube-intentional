@@ -51,8 +51,10 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 - **Tooling:** Vite 6 (Vite 7 requires Node 20.19+; the dev machine runs Node 20.11). Dev dependencies are only `typescript`, `vite`, and `@types/chrome`.
 - **Permissions:** None requested yet. Content scripts declared in the manifest need none; `storage` will be added when settings are introduced.
 - **Source layout:** Content-script code lives in `src/content/`. `src/content/youtube/` is the shared YouTube integration layer (selectors, page type, navigation, feed scanning). Page-specific features will go in their own modules and build on it. All YouTube DOM selectors live in `src/content/youtube/selectors.ts`.
-- **Navigation detection:** Listen for YouTube's `yt-navigate-finish` DOM event on `document`, with `popstate` as a fallback, deduplicated by URL, plus one run at startup. Page type is derived from the URL path, not from the event's `detail` (internal to YouTube, and not reliably readable from a content script's isolated world).
-- **Feed scanning:** On Home, Subscriptions, and search only, a `MutationObserver` watches the visible page container and re-scans (debounced 250 ms) as cards render and as infinite scroll adds more. It is disconnected on every navigation. No observer runs on other pages.
+- **Navigation detection:** Listen for YouTube's `yt-navigate-finish` DOM event on `document`, with `popstate` as a fallback, deduplicated by URL, plus one run at startup. Page type is derived from the URL path, not from the event's `detail` (internal to YouTube, and not reliably readable from a content script's isolated world). Back/Forward is detected with the standard Navigation API (`navigation`'s `navigate` event, `navigationType === 'traverse'`), because YouTube fires `yt-navigate-finish` before `popstate` on Back.
+- **Feed scanning:** On Home, Subscriptions, and search only, a `MutationObserver` watches the visible page container and re-scans as cards render and as infinite scroll adds more. Scans run at most once per animation frame (before paint), so new cards can be hidden before they are shown. The observer is disconnected on every navigation. No observer runs on other pages.
+- **Feed limit (Home and Subscriptions):** Only real video cards count toward the limit; ads, shelves, and Shorts after the last shown video are hidden too. The grid's `#contents` gets a class, and CSS hides every item not marked revealed, so cards YouTube appends stay hidden until the next scan. Infinite scroll is stopped by hiding the continuation with `display: none`: a hidden element never intersects the viewport, so YouTube never fetches. The continuation is shown only while fewer videos are loaded than the current limit, so YouTube fetches just enough. Styles are injected from TypeScript so they can use `SELECTORS`.
+- **Load More state:** The number of videos shown is kept per page in memory. Back/Forward restores it; any other navigation to the page resets it to 12. The button is removed when all loaded videos are shown and YouTube has no continuation.
 
 ### YouTube DOM findings (verified November 2026)
 
@@ -60,7 +62,10 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 - Home and Subscriptions: `ytd-browse[page-subtype="home"|"subscriptions"]`, with cards at `ytd-rich-grid-renderer > #contents > ytd-rich-item-renderer`. Cards contain the newer `yt-lockup-view-model` (videos) or `ytm-shorts-lockup-view-model(-v2)` (Shorts).
 - Search: `ytd-search`, with cards at `ytd-item-section-renderer > #contents > ytd-video-renderer | yt-lockup-view-model`.
 - Shorts shelves: `grid-shelf-view-model` is a generic shelf and is a Shorts shelf only if it contains Shorts lockups. Older variants are `ytd-rich-shelf-renderer[is-shorts]` and `ytd-reel-shelf-renderer`. Shelf titles are localized and not used.
-- Infinite scroll is driven by a trailing `ytd-continuation-item-renderer`.
+- Infinite scroll is driven by a trailing `ytd-continuation-item-renderer` (the last child of the grid's `#contents`). It fetches only when the element scrolls into view; with `display: none` it never fetches, and un-hiding it while in view fetches the next batch (~30 cards on a channel grid).
+- Grid cards lazy-load thumbnails when scrolled into view, including cards that were `display: none` and later revealed.
+- YouTube's theme CSS variables now have obfuscated names (e.g. `--t7f4f2c6d54836ce0`), so `--yt-spec-*` variables cannot be relied on. Dark theme is indicated by the `dark` attribute on `<html>`.
+- On Back, YouTube fires `yt-navigate-finish` before `popstate`.
 - Some navigations (e.g. clicking the logo from a watch page) do a full page reload instead of an in-app navigation.
 - Logged-out Home with no watch history shows an empty "Try searching to get started" state with no cards.
 
@@ -78,7 +83,7 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 |---|---|---|
 | 1 | Create and load the extension. | Complete |
 | 2 | Detect YouTube pages and relevant elements. | Complete |
-| 3 | Implement the 12-video limit and Load More. | Not started |
+| 3 | Implement the 12-video limit and Load More. | Complete |
 | 4 | Add Subscriptions and Discover navigation. | Not started |
 | 5 | Apply Shorts rules and preserve native features. | Not started |
 | 6 | Polish, test, and prepare for release. | Not started |
@@ -107,21 +112,17 @@ Detection only; YouTube's page is not modified.
 - Manually verified by the user as an installed extension in their logged-in Chrome profile: Home, Subscriptions, search, scrolling, watch-page navigation, and Back all logged correctly, and YouTube behaved normally.
 - No automated unit tests yet; verification is type check, build, and manual testing.
 
+### Milestone 3 — Complete
+
+- Home and Subscriptions show the first 12 videos, then a "Load 12 More" button styled like YouTube's buttons in light and dark theme. Scrolling no longer loads more. Search results are unchanged.
+- Decisions made at the start of the milestone: limit Home and Subscriptions only; count only real videos and hide everything after the 12th; keep the loaded count on Back; remove the button at the end of the feed.
+- New module `src/content/feedLimiter.ts`. `watchFeed` now scans once per animation frame instead of a 250 ms debounce. `onNavigate` now reports whether a navigation was Back/Forward.
+- Verified by injecting the built script into a logged-out channel Videos tab made to look like Home (`page-subtype="home"`, path `/`): 12 of 30 cards shown; scrolling loaded nothing; clicks showed 24, then 36 (fetching 30 more when the spinner scrolled into view), then 48 and 60; all revealed thumbnails loaded on scroll; going to a watch page removed every extension element and class; Back restored 36 videos; with the continuation removed, the button disappeared once all 60 were shown; in-app search still scrolled infinitely (18 to 40 results) with no extension elements.
+- Manually verified by the user as an installed extension in their logged-in Chrome profile: the limit and Load More on Home and Subscriptions, Back restoring the count, reset on other navigation, dark theme, and search and other pages unaffected. Shorts shelves among the first 12 videos still appear, as expected until Milestone 5.
+
 ## Current Milestone
 
-Milestone 3 — Implement the 12-video limit and Load More (not started).
-
-Planned scope:
-
-- On feed pages, show only the first 12 video cards and stop YouTube's automatic infinite scrolling.
-- Add a "Load 12 More" button that reveals the next 12 cards, fetching more from YouTube when needed.
-- Build on `scanFeed` (which already separates videos, Shorts, and ads) and on `ytd-continuation-item-renderer` (YouTube's infinite-scroll trigger).
-- Out of scope: Subscriptions-as-Home and Discover navigation (Milestone 4), and hiding Shorts (Milestone 5).
-
-Open questions to settle at the start of Milestone 3:
-
-- Which pages get the limit now: Home and Subscriptions only, since search keeps normal infinite scrolling.
-- How to stop infinite scroll without breaking lazy loading (see Known Challenges).
+Milestone 4 — Add Subscriptions and Discover navigation (not started).
 
 ## Development Principle
 

@@ -8,10 +8,19 @@
 export const SELECTORS = {
   pageManager: 'ytd-page-manager',
 
+  /** Present when YouTube's dark theme is active. */
+  darkTheme: 'html[dark]',
+
   /** Visible page containers, one per page type we care about. */
   homePage: 'ytd-browse[page-subtype="home"]:not([hidden])',
   subscriptionsPage: 'ytd-browse[page-subtype="subscriptions"]:not([hidden])',
   searchPage: 'ytd-search:not([hidden])',
+
+  /** The Home / Subscriptions video grid. */
+  grid: 'ytd-rich-grid-renderer',
+
+  /** The grid's item list: cards, shelves, ads, and the trailing continuation. */
+  gridContents: 'ytd-rich-grid-renderer > #contents',
 
   /** Top-level cards in the Home / Subscriptions grid (not cards nested in shelves). */
   gridCard: 'ytd-rich-grid-renderer > #contents > ytd-rich-item-renderer',

@@ -6,7 +6,7 @@ See [PROJECT.md](PROJECT.md) for the product vision, requirements, and roadmap.
 
 ## Status
 
-Milestone 2: the extension detects YouTube page navigation and logs the page type, plus the video cards, Shorts, and Shorts shelves on Home, Subscriptions, and search results, to the DevTools console. No YouTube behavior is changed yet.
+Milestone 3: Home and Subscriptions show 12 videos at a time with a "Load 12 More" button instead of infinite scrolling. Search results are unchanged. The extension also logs page navigation and feed contents to the DevTools console.
 
 ## Requirements
 
@@ -43,6 +43,7 @@ After rebuilding, click the reload icon on the extension's card in `chrome://ext
 3. Open DevTools (F12) > Console. You should see `[YouTube Intentional] Content script loaded on https://www.youtube.com/`.
 4. As you move around YouTube, the console logs `[YouTube Intentional] Page: <type> (<path>)` after every navigation.
 5. On Home, Subscriptions, and search, it also logs a collapsible line like `home: 24 videos, 0 Shorts cards, 1 other cards, 1 Shorts shelves, continuation present`. Expand it and hover over the logged elements to highlight them on the page.
+6. Home and Subscriptions show 12 videos followed by a "Load 12 More" button, and scrolling to the bottom loads nothing new. Each click shows 12 more videos. Search results still scroll infinitely.
 
 ## Project structure
 
@@ -54,6 +55,7 @@ src/
     main.ts                Content script entry point
     activeIndicator.ts     Temporary "extension active" badge
     debugLog.ts            Console logging for navigation and feed scans
+    feedLimiter.ts         12-video limit and "Load 12 More" on Home / Subscriptions
     youtube/
       selectors.ts         All YouTube DOM selectors
       pageType.ts          URL -> page type (home, subscriptions, search, ...)
