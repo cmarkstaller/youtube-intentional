@@ -6,7 +6,7 @@ See [PROJECT.md](PROJECT.md) for the product vision, requirements, and roadmap.
 
 ## Status
 
-Milestone 1: the extension loads on `www.youtube.com` and shows a temporary "YouTube Intentional active" badge in the bottom-left corner. No YouTube behavior is changed yet.
+Milestone 2: the extension detects YouTube page navigation and logs the page type, plus the video cards, Shorts, and Shorts shelves on Home, Subscriptions, and search results, to the DevTools console. No YouTube behavior is changed yet.
 
 ## Requirements
 
@@ -41,16 +41,24 @@ After rebuilding, click the reload icon on the extension's card in `chrome://ext
 1. Open <https://www.youtube.com/>.
 2. A small dark badge reading "YouTube Intentional active" appears in the bottom-left corner and fades out after about 4 seconds.
 3. Open DevTools (F12) > Console. You should see `[YouTube Intentional] Content script loaded on https://www.youtube.com/`.
+4. As you move around YouTube, the console logs `[YouTube Intentional] Page: <type> (<path>)` after every navigation.
+5. On Home, Subscriptions, and search, it also logs a collapsible line like `home: 24 videos, 0 Shorts cards, 1 other cards, 1 Shorts shelves, continuation present`. Expand it and hover over the logged elements to highlight them on the page.
 
 ## Project structure
 
 ```
 public/
-  manifest.json          Extension manifest, copied to dist/ as-is
+  manifest.json            Extension manifest, copied to dist/ as-is
 src/
   content/
-    main.ts              Content script entry point
-    activeIndicator.ts   Temporary "extension active" badge
-vite.config.ts           Builds src/content/main.ts into dist/content.js (IIFE)
-tsconfig.json            Strict TypeScript settings
+    main.ts                Content script entry point
+    activeIndicator.ts     Temporary "extension active" badge
+    debugLog.ts            Console logging for navigation and feed scans
+    youtube/
+      selectors.ts         All YouTube DOM selectors
+      pageType.ts          URL -> page type (home, subscriptions, search, ...)
+      navigation.ts        Detects YouTube's in-app navigation
+      feedScanner.ts       Finds and classifies cards and Shorts shelves
+vite.config.ts             Builds src/content/main.ts into dist/content.js (IIFE)
+tsconfig.json              Strict TypeScript settings
 ```

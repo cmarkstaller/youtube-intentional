@@ -50,7 +50,19 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 - **Manifest:** `public/manifest.json` is copied to `dist/` unchanged. `dist/` is the folder loaded as the unpacked extension.
 - **Tooling:** Vite 6 (Vite 7 requires Node 20.19+; the dev machine runs Node 20.11). Dev dependencies are only `typescript`, `vite`, and `@types/chrome`.
 - **Permissions:** None requested yet. Content scripts declared in the manifest need none; `storage` will be added when settings are introduced.
-- **Source layout:** Content-script code lives in `src/content/`. Shared logic will go in a separate module, and YouTube DOM selectors will be centralized in one file.
+- **Source layout:** Content-script code lives in `src/content/`. `src/content/youtube/` is the shared YouTube integration layer (selectors, page type, navigation, feed scanning). Page-specific features will go in their own modules and build on it. All YouTube DOM selectors live in `src/content/youtube/selectors.ts`.
+- **Navigation detection:** Listen for YouTube's `yt-navigate-finish` DOM event on `document`, with `popstate` as a fallback, deduplicated by URL, plus one run at startup. Page type is derived from the URL path, not from the event's `detail` (internal to YouTube, and not reliably readable from a content script's isolated world).
+- **Feed scanning:** On Home, Subscriptions, and search only, a `MutationObserver` watches the visible page container and re-scans (debounced 250 ms) as cards render and as infinite scroll adds more. It is disconnected on every navigation. No observer runs on other pages.
+
+### YouTube DOM findings (verified November 2026)
+
+- Pages live inside `ytd-page-manager`. Visited pages stay in the DOM with the `hidden` attribute, so selectors must target the visible container only.
+- Home and Subscriptions: `ytd-browse[page-subtype="home"|"subscriptions"]`, with cards at `ytd-rich-grid-renderer > #contents > ytd-rich-item-renderer`. Cards contain the newer `yt-lockup-view-model` (videos) or `ytm-shorts-lockup-view-model(-v2)` (Shorts).
+- Search: `ytd-search`, with cards at `ytd-item-section-renderer > #contents > ytd-video-renderer | yt-lockup-view-model`.
+- Shorts shelves: `grid-shelf-view-model` is a generic shelf and is a Shorts shelf only if it contains Shorts lockups. Older variants are `ytd-rich-shelf-renderer[is-shorts]` and `ytd-reel-shelf-renderer`. Shelf titles are localized and not used.
+- Infinite scroll is driven by a trailing `ytd-continuation-item-renderer`.
+- Some navigations (e.g. clicking the logo from a watch page) do a full page reload instead of an in-app navigation.
+- Logged-out Home with no watch history shows an empty "Try searching to get started" state with no cards.
 
 ## Known Challenges
 
@@ -65,7 +77,7 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 | # | Milestone | Status |
 |---|---|---|
 | 1 | Create and load the extension. | Complete |
-| 2 | Detect YouTube pages and relevant elements. | Not started |
+| 2 | Detect YouTube pages and relevant elements. | Complete |
 | 3 | Implement the 12-video limit and Load More. | Not started |
 | 4 | Add Subscriptions and Discover navigation. | Not started |
 | 5 | Apply Shorts rules and preserve native features. | Not started |
@@ -85,15 +97,31 @@ Initialized the project and verified content-script injection.
 - Manually verified by the user via `chrome://extensions` > Load unpacked in their own Chrome profile.
 - Known limitation (expected, addressed in Milestone 2): the script runs only on full page loads, so YouTube's in-app navigation does not re-trigger it.
 
+### Milestone 2 — Complete
+
+Detection only; YouTube's page is not modified.
+
+- Detects in-app navigation, Back/Forward, and full page loads, and logs the page type (`home`, `subscriptions`, `search`, `watch`, `shorts`, `other`).
+- On Home, Subscriptions, and search, logs counts of video cards, Shorts cards, other cards (ads), Shorts shelves, and whether the infinite-scroll continuation is present. Logs again whenever the counts change.
+- Verified by injecting the built script into a logged-out YouTube tab: search results (20 videos and 2 Shorts shelves, growing to 40 and 4 after scrolling), search to watch to Back, and in-app navigation to Home (empty feed, 0 cards). Grid card and Shorts card selectors checked on a channel's Videos tab (30 videos, 0 Shorts) and Shorts tab (48 of 48 Shorts).
+- Manually verified by the user as an installed extension in their logged-in Chrome profile: Home, Subscriptions, search, scrolling, watch-page navigation, and Back all logged correctly, and YouTube behaved normally.
+- No automated unit tests yet; verification is type check, build, and manual testing.
+
 ## Current Milestone
 
-Milestone 2 — Detect YouTube pages and relevant elements (not started).
+Milestone 3 — Implement the 12-video limit and Load More (not started).
 
 Planned scope:
 
-- Detect YouTube's client-side (SPA) navigation.
-- Identify the current page type (Home, Subscriptions, search, watch, etc.).
-- Centralize YouTube DOM selectors in one module.
+- On feed pages, show only the first 12 video cards and stop YouTube's automatic infinite scrolling.
+- Add a "Load 12 More" button that reveals the next 12 cards, fetching more from YouTube when needed.
+- Build on `scanFeed` (which already separates videos, Shorts, and ads) and on `ytd-continuation-item-renderer` (YouTube's infinite-scroll trigger).
+- Out of scope: Subscriptions-as-Home and Discover navigation (Milestone 4), and hiding Shorts (Milestone 5).
+
+Open questions to settle at the start of Milestone 3:
+
+- Which pages get the limit now: Home and Subscriptions only, since search keeps normal infinite scrolling.
+- How to stop infinite scroll without breaking lazy loading (see Known Challenges).
 
 ## Development Principle
 
