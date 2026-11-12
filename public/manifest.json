@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Intentional",
+  "version": "0.1.0",
+  "description": "Make YouTube a more intentional experience with finite, deliberate browsing.",
+  "content_scripts": [
+    {
+      "matches": ["https://www.youtube.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
