@@ -9,7 +9,7 @@ See [PROJECT.md](PROJECT.md) for the product vision, requirements, and roadmap.
 - **Home** is your Subscriptions feed; **Discover** is YouTube's recommendations. Both show 12 videos at a time with a "Load 12 More" button (no infinite scroll).
 - Sidebar shows Home, Discover, You; Shorts is removed. The logo and youtube.com open Home.
 - Home and Discover hide shelves and Shorts cards. Shorts links open in the normal `/watch` player.
-- Watch pages hide the suggested-videos column; playlists and live chat stay.
+- Watch pages hide the suggested-videos column and center the player on wide layouts (same size); playlists and live chat stay.
 - Search, History, Watch Later, playlists, notifications, channel pages, and playback stay native.
 
 ## Requirements
@@ -46,7 +46,7 @@ After rebuilding, click the reload icon on the extension's card in `chrome://ext
 2. Sidebar shows Home, Discover, You (no Shorts). Discover opens `/`; the logo returns to Home.
 3. Home and Discover show 12 videos, then "Load 12 More"; scrolling does not fetch more. Shelves and Shorts cards are hidden.
 4. Search still scrolls infinitely. Shorts in search open as `/watch?v=<id>`.
-5. On a watch page, the side suggested-videos list is gone. Open a playlist video or a live stream and confirm the playlist panel / chat still appear.
+5. On a watch page, the side suggested-videos list is gone and the player is centered (not hugging the left margin). Open a playlist video or a live stream and confirm the playlist panel / chat still appear beside the player.
 6. History, Watch Later, channel pages, notifications, and playback behave normally.
 
 ## Project structure
@@ -61,7 +61,7 @@ src/
     sidebar.ts             Sidebar: Home, Discover, You; hides Shorts
     homeRedirect.ts        Sends the logo and fresh visits to youtube.com to Home
     shortsRedirect.ts      Opens Shorts in the normal watch player
-    watchRelated.ts        Hides suggested videos on watch pages
+    watchRelated.ts        Hides suggested videos; centers watch layout on wide screens
     youtube/
       selectors.ts         All YouTube DOM selectors
       pageType.ts          URL -> page type (discover, subscriptions, search, ...)
