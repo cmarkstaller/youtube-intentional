@@ -2,6 +2,7 @@ import { showActiveIndicator } from './activeIndicator';
 import { logFeedScan, logNavigation } from './debugLog';
 import { createFeedLimiter, isLimitedPage, type FeedLimiter } from './feedLimiter';
 import { interceptHomeLinks, redirectFreshDiscoverVisit } from './homeRedirect';
+import { interceptShortsLinks, redirectShortsPage } from './shortsRedirect';
 import { startSidebar } from './sidebar';
 import { watchFeed } from './youtube/feedScanner';
 import { onNavigate } from './youtube/navigation';
@@ -9,12 +10,13 @@ import { getPageType, isFeedPage } from './youtube/pageType';
 
 console.info('[YouTube Intentional] Content script loaded on', location.href);
 
-if (!redirectFreshDiscoverVisit()) start();
+if (!redirectShortsPage() && !redirectFreshDiscoverVisit()) start();
 
 function start(): void {
   showActiveIndicator();
   startSidebar();
   interceptHomeLinks();
+  interceptShortsLinks();
 
   let stopWatchingFeed: (() => void) | null = null;
   let feedLimiter: FeedLimiter | null = null;
@@ -24,6 +26,8 @@ function start(): void {
     stopWatchingFeed = null;
     feedLimiter?.stop();
     feedLimiter = null;
+
+    if (redirectShortsPage()) return;
 
     const pageType = getPageType(location);
     logNavigation(pageType);

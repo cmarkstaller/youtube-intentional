@@ -74,8 +74,9 @@ export function isLimitedPage(pageType: PageType): pageType is LimitedPageType {
 
 /**
  * Limits the Discover / Subscriptions grid to the first `BATCH_SIZE` videos and
- * adds a "Load 12 More" button. Ads, shelves, and Shorts after the last shown
- * video are hidden too. `keepRevealed` restores the previous count for this
+ * adds a "Load 12 More" button. Shelves (Shorts, news, etc.) and Shorts cards
+ * are always hidden; ads after the last shown video are hidden too.
+ * `keepRevealed` restores the previous count for this
  * page (Back/Forward); otherwise it resets to `BATCH_SIZE`.
  */
 export function createFeedLimiter(pageType: LimitedPageType, keepRevealed: boolean): FeedLimiter {
@@ -112,10 +113,12 @@ export function createFeedLimiter(pageType: LimitedPageType, keepRevealed: boole
 
     const limit = getLimit();
     const lastShownVideo = scan.videoCards[limit - 1];
+    const shortsCards = new Set<Element>(scan.shortsCards);
     let revealing = true;
     for (const item of contents.children) {
       if (item.matches(SELECTORS.continuation)) continue;
-      item.classList.toggle(CLASS.revealed, revealing);
+      const alwaysHidden = shortsCards.has(item) || item.matches(SELECTORS.gridSection);
+      item.classList.toggle(CLASS.revealed, revealing && !alwaysHidden);
       if (item === lastShownVideo) revealing = false;
     }
 

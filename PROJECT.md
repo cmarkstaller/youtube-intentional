@@ -35,6 +35,12 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 
 - Hide Shorts from Home, Subscriptions, and Discover.
 - Allow Shorts in search results.
+- Shorts open in YouTube's normal video player (`/watch?v=<id>`), never the Shorts player, which swipes into an endless feed. This applies to every Shorts link and URL (search, channel pages, shared links). `/shorts/` without an ID goes to Home.
+- Shorts elsewhere (e.g. watch page recommendations, a channel's Shorts tab) are not hidden.
+
+### Shelves
+
+- Home and Discover show only video cards (and ads where YouTube places them). Every shelf is hidden, not just Shorts shelves (e.g. Breaking News, Playables).
 
 ### Preserve Native YouTube
 
@@ -61,6 +67,8 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 - **Navigation detection:** Listen for YouTube's `yt-navigate-finish` DOM event on `document`, with `popstate` as a fallback, deduplicated by URL, plus one run at startup. Page type is derived from the URL path, not from the event's `detail` (internal to YouTube, and not reliably readable from a content script's isolated world). Back/Forward is detected with the standard Navigation API (`navigation`'s `navigate` event, `navigationType === 'traverse'`), because YouTube fires `yt-navigate-finish` before `popstate` on Back.
 - **Feed scanning:** On Home, Subscriptions, and search only, a `MutationObserver` watches the visible page container and re-scans as cards render and as infinite scroll adds more. Scans run at most once per animation frame (before paint), so new cards can be hidden before they are shown. The observer is disconnected on every navigation. No observer runs on other pages.
 - **Feed limit (Home and Subscriptions):** Only real video cards count toward the limit; ads, shelves, and Shorts after the last shown video are hidden too. The grid's `#contents` gets a class, and CSS hides every item not marked revealed, so cards YouTube appends stay hidden until the next scan. Infinite scroll is stopped by hiding the continuation with `display: none`: a hidden element never intersects the viewport, so YouTube never fetches. The continuation is shown only while fewer videos are loaded than the current limit, so YouTube fetches just enough. Styles are injected from TypeScript so they can use `SELECTORS`.
+- **Shelves and Shorts on Home and Discover:** The feed limiter never marks shelf rows (`ytd-rich-section-renderer`) or Shorts cards as revealed, so the existing CSS keeps them hidden; they never count toward the limit.
+- **Shorts to watch player:** Clicks on `a[href^="/shorts/"]` are intercepted in the capture phase on `window` and load `/watch?v=<id>` with `location.assign` (a full page load: there is no documented way to start an in-app navigation without a link on screen). Any page that is still a `/shorts/` URL, at startup or after an in-app navigation, is redirected with `location.replace`, so the Shorts URL stays out of history. Modified clicks are not intercepted; the new tab redirects on load.
 - **Load More state:** The number of videos shown is kept per page in memory. Back/Forward restores it; any other navigation to the page resets it to 12. The button is removed when all loaded videos are shown and YouTube has no continuation.
 - **Home and Discover URLs:** Home is `/feed/subscriptions`; Discover is YouTube's Home page at `/`. YouTube strips query parameters from `/`, so Discover cannot have its own URL. Internally the page types are `subscriptions` and `discover`.
 - **Sidebar:** YouTube's own entries are reused rather than adding new ones: the Subscriptions entry is relabeled Home, the Home entry is relabeled Discover. This keeps YouTube's navigation and current-page highlight. Hiding Shorts, putting Home above Discover (CSS `order`), and the icons (CSS masks, filled on the current page) are injected CSS. Labels, tooltips, and `aria-label`s are rewritten in TypeScript, re-applied by a MutationObserver on `ytd-app` because YouTube renders the sidebar lazily and can re-render it. That observer runs for the life of the tab.
@@ -77,7 +85,9 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 - YouTube's theme CSS variables now have obfuscated names (e.g. `--t7f4f2c6d54836ce0`), so `--yt-spec-*` variables cannot be relied on. Dark theme is indicated by the `dark` attribute on `<html>`.
 - On Back, YouTube fires `yt-navigate-finish` before `popstate`.
 - Some navigations (e.g. clicking the logo from a watch page) do a full page reload instead of an in-app navigation.
-- Logged-out Home with no watch history shows an empty "Try searching to get started" state with no cards.
+- Logged-out Home with no watch history has shown an empty "Try searching to get started" state with no cards; as of Milestone 5 it shows recommendations, including Shorts shelves.
+- Shelves in the Home / Subscriptions grid are full-width `ytd-rich-section-renderer` rows that are direct children of the grid's `#contents`, alongside the `ytd-rich-item-renderer` cards. Shorts shelves there are `ytd-rich-shelf-renderer[is-shorts]`.
+- Shorts in search results (and in Shorts shelves) are plain links with `href="/shorts/<id>"`. `/watch?v=<id>` plays a Short in the normal player, and YouTube does not redirect it back to `/shorts/`.
 - Sidebar: the full sidebar is `ytd-guide-section-renderer > #items > ytd-guide-entry-renderer` (the current page's entry has the `active` attribute); the collapsed sidebar is `ytd-mini-guide-entry-renderer` in a flex column (the current page's link has `aria-current="true"`). Each entry's direct child is `a#endpoint` with `href` and `title`; the label is `.title`, the icon `yt-icon.guide-icon`; mini entries also have an `aria-label` and a tooltip (`#tooltip`). The full sidebar's Shorts link has no `href` (only `title="Shorts"`); the mini one has `href="/shorts/"`. The mini sidebar renders only at medium widths, and on watch pages the sidebar may not be rendered until opened.
 - Clicking a sidebar link programmatically (`.click()`), even a hidden one, performs YouTube's normal in-app navigation.
 
@@ -97,7 +107,7 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 | 2 | Detect YouTube pages and relevant elements. | Complete |
 | 3 | Implement the 12-video limit and Load More. | Complete |
 | 4 | Add Subscriptions and Discover navigation. | Complete |
-| 5 | Apply Shorts rules and preserve native features. | Not started |
+| 5 | Apply Shorts rules and preserve native features. | Complete |
 | 6 | Polish, test, and prepare for release. | Not started |
 
 ## Progress
@@ -143,9 +153,19 @@ Detection only; YouTube's page is not modified.
 - Manually verified by the user as an installed extension in their logged-in Chrome profile: landing on Home from youtube.com, the full and collapsed sidebars (Home, Discover, You, no Shorts), Discover with the 12-video limit, the logo returning to Home, Back and reload staying on Discover, and search and other native pages unaffected.
 - Known limitations: on a fresh visit to youtube.com, Discover may be visible briefly before the redirect. Keyboard focus order in the sidebar is Discover then Home (CSS `order` changes only the visual order). Labels are English.
 
+### Milestone 5 — Complete
+
+- Home and Discover hide every shelf and every Shorts card; the 12-video limit counts only real videos. Shorts links and `/shorts/` URLs open in the normal video player.
+- Decisions made at the start of the milestone: Shorts open in the watch player everywhere; Shorts are not hidden outside Home, Subscriptions, and Discover; all shelves are hidden on Home and Discover; the development badge and debug logs are removed in Milestone 6.
+- New module `src/content/shortsRedirect.ts`; new selectors `gridSection` and `shortsLink`.
+- Verified by injecting the built script (minus the unchanged sidebar module) into a logged-out Chrome tab: reloaded Discover showed 12 videos and 2 ads with both Shorts shelves hidden; Load More showed 24, 36, then 48 videos with no shelves or Shorts visible; clicking a Short in in-app search results loaded `/watch?v=<id>` in the normal player; a direct load of `/shorts/<id>` was replaced with `/watch?v=<id>` without adding a history entry.
+- Manually verified by the user as an installed extension in their logged-in Chrome profile: Home (Subscriptions) and Discover with no shelves or Shorts and the 12-video limit and Load More intact; Shorts still shown in search and opening in the normal player, with Back returning to the results; Ctrl/middle-click on a Short ending on `/watch?v=<id>`; a pasted `/shorts/<id>` URL redirecting to the watch page; a channel's Shorts tab still visible with its Shorts opening in the normal player; and History, Watch Later, playlists, notifications, channel pages, the account menu, and playback unaffected.
+- Not explicitly tested: an in-app navigation to `/shorts/` that does not come from a link click (covered by the redirect after each navigation).
+- Known limitation: a direct visit or non-link navigation to `/shorts/<id>` may show the Shorts player briefly before the redirect.
+
 ## Current Milestone
 
-Milestone 5 — Apply Shorts rules and preserve native features (not started).
+Milestone 6 — Polish, test, and prepare for release (not started).
 
 ## Development Principle
 

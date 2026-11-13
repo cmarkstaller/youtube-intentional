@@ -1,6 +1,6 @@
 import { SELECTORS } from './youtube/selectors';
 
-const SUBSCRIPTIONS_PATH = '/feed/subscriptions';
+export const SUBSCRIPTIONS_PATH = '/feed/subscriptions';
 
 /**
  * The user's Home is Subscriptions. YouTube's Home page (`/`) is Discover,

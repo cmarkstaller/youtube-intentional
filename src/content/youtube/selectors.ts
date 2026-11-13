@@ -28,6 +28,9 @@ export const SELECTORS = {
   /** Top-level cards in the Home / Subscriptions grid (not cards nested in shelves). */
   gridCard: 'ytd-rich-grid-renderer > #contents > ytd-rich-item-renderer',
 
+  /** A full-width row in the Home / Subscriptions grid that holds a shelf (Shorts, news, etc.). */
+  gridSection: 'ytd-rich-section-renderer',
+
   /** Top-level cards in search results. */
   searchCard:
     'ytd-item-section-renderer > #contents > :is(ytd-video-renderer, yt-lockup-view-model)',
@@ -52,6 +55,9 @@ export const SELECTORS = {
     'ytd-reel-shelf-renderer',
     'grid-shelf-view-model:has(ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2)',
   ].join(', '),
+
+  /** Any link that opens a Short in YouTube's Shorts player. */
+  shortsLink: 'a[href^="/shorts/"]',
 
   /** Any link to YouTube's Home page, e.g. the logo. */
   homeLink: 'a[href="/"]',
