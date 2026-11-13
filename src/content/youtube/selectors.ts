@@ -101,4 +101,15 @@ export const SELECTORS = {
   guideEntryLink: 'a#endpoint',
   guideEntryIcon: 'yt-icon.guide-icon',
   guideEntryText: '.title, #tooltip',
+
+  /**
+   * Item list of the root account menu (avatar when signed in, settings gear
+   * when signed out). Submenus are a nested renderer without this
+   * `menu-style`, and YouTube hides this menu's `#container` while one is open.
+   */
+  accountMenuSections:
+    'ytd-multi-page-menu-renderer[menu-style="multi-page-menu-style-type-system"] > #container > #sections',
+
+  /** Popup host the account menu is rendered into. Present for the life of the page. */
+  popupContainer: 'ytd-popup-container',
 } as const;

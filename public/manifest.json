@@ -3,6 +3,7 @@
   "name": "YouTube Intentional",
   "version": "1.0.0",
   "description": "Make YouTube a more intentional experience with finite, deliberate browsing.",
+  "permissions": ["storage"],
   "content_scripts": [
     {
       "matches": ["https://www.youtube.com/*"],

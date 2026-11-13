@@ -1,3 +1,5 @@
+import { startAccountMenu } from './accountMenu';
+import { loadBatchSizes } from './batchSize';
 import { createFeedLimiter, isLimitedPage, type FeedLimiter } from './feedLimiter';
 import { interceptHomeLinks, redirectFreshDiscoverVisit } from './homeRedirect';
 import { interceptShortsLinks, redirectShortsPage } from './shortsRedirect';
@@ -7,10 +9,14 @@ import { watchFeed } from './youtube/feedScanner';
 import { onNavigate } from './youtube/navigation';
 import { getPageType, isFeedPage } from './youtube/pageType';
 
-if (!redirectShortsPage() && !redirectFreshDiscoverVisit()) start();
+if (!redirectShortsPage() && !redirectFreshDiscoverVisit()) {
+  // The feed limiter needs the saved batch size before its first scan.
+  void loadBatchSizes().then(start);
+}
 
 function start(): void {
   startSidebar();
+  startAccountMenu();
   hideWatchRelated();
   interceptHomeLinks();
   interceptShortsLinks();

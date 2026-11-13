@@ -1,10 +1,9 @@
+import { getBatchSize, onBatchSizeChange, type BatchPage } from './batchSize';
 import { scanFeed, type FeedScan } from './youtube/feedScanner';
 import type { PageType } from './youtube/pageType';
 import { SELECTORS } from './youtube/selectors';
 
-export type LimitedPageType = Extract<PageType, 'discover' | 'subscriptions'>;
-
-const BATCH_SIZE = 12;
+export type LimitedPageType = Extract<PageType, BatchPage>;
 
 const CLASS = {
   limited: 'yti-limited',
@@ -73,23 +72,35 @@ export function isLimitedPage(pageType: PageType): pageType is LimitedPageType {
 }
 
 /**
- * Limits the Discover / Subscriptions grid to the first `BATCH_SIZE` videos and
- * adds a "Load 12 More" button. Shelves (Shorts, news, etc.) and Shorts cards
- * are always hidden; ads after the last shown video are hidden too.
- * `keepRevealed` restores the previous count for this
- * page (Back/Forward); otherwise it resets to `BATCH_SIZE`.
+ * Limits the Discover / Subscriptions grid to the first batch of videos and
+ * adds a "Load N More" button. N is that page's saved batch size. Shelves
+ * (Shorts, news, etc.) and Shorts cards are always hidden; ads after the last
+ * shown video are hidden too. `keepRevealed` restores the previous count for
+ * this page (Back/Forward); otherwise it resets to the batch size.
+ *
+ * Moving the slider sets the shown count to the new size immediately.
  */
 export function createFeedLimiter(pageType: LimitedPageType, keepRevealed: boolean): FeedLimiter {
   injectStyles();
-  if (!keepRevealed || !revealLimits.has(pageType)) revealLimits.set(pageType, BATCH_SIZE);
+  if (!keepRevealed || !revealLimits.has(pageType)) {
+    revealLimits.set(pageType, getBatchSize(pageType));
+  }
 
   let contents: HTMLElement | null = null;
   let container: HTMLElement | null = null;
 
-  const getLimit = (): number => revealLimits.get(pageType) ?? BATCH_SIZE;
+  const getLimit = (): number => revealLimits.get(pageType) ?? getBatchSize(pageType);
 
   const loadMore = createLoadMore(() => {
-    revealLimits.set(pageType, getLimit() + BATCH_SIZE);
+    revealLimits.set(pageType, getLimit() + getBatchSize(pageType));
+    if (container?.isConnected) update(scanFeed(pageType, container));
+  });
+  loadMore.setSize(getBatchSize(pageType));
+
+  const stopListening = onBatchSizeChange((page, size) => {
+    if (page !== pageType) return;
+    revealLimits.set(pageType, size);
+    loadMore.setSize(size);
     if (container?.isConnected) update(scanFeed(pageType, container));
   });
 
@@ -106,7 +117,7 @@ export function createFeedLimiter(pageType: LimitedPageType, keepRevealed: boole
     const grid = found?.closest<HTMLElement>(SELECTORS.grid);
     if (found !== contents) clearContents();
     if (!found || !grid) {
-      loadMore.remove();
+      loadMore.element.remove();
       return;
     }
     contents = found;
@@ -128,32 +139,43 @@ export function createFeedLimiter(pageType: LimitedPageType, keepRevealed: boole
 
     const showButton = !loading && (scan.videoCards.length > limit || scan.hasContinuation);
     if (!showButton) {
-      loadMore.remove();
-    } else if (grid.nextElementSibling !== loadMore) {
-      grid.after(loadMore);
+      loadMore.element.remove();
+    } else if (grid.nextElementSibling !== loadMore.element) {
+      grid.after(loadMore.element);
     }
   }
 
   return {
     update,
     stop() {
-      loadMore.remove();
+      stopListening();
+      loadMore.element.remove();
       clearContents();
     },
   };
 }
 
-function createLoadMore(onClick: () => void): HTMLElement {
+interface LoadMore {
+  element: HTMLElement;
+  setSize(size: number): void;
+}
+
+function createLoadMore(onClick: () => void): LoadMore {
   const wrapper = document.createElement('div');
   wrapper.className = CLASS.loadMore;
 
   const button = document.createElement('button');
   button.type = 'button';
-  button.textContent = `Load ${BATCH_SIZE} More`;
   button.addEventListener('click', onClick);
-
   wrapper.append(button);
-  return wrapper;
+
+  return {
+    element: wrapper,
+    setSize(size: number) {
+      const label = `Load ${size} More`;
+      if (button.textContent !== label) button.textContent = label;
+    },
+  };
 }
 
 function injectStyles(): void {
