@@ -42,6 +42,11 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 
 - Home and Discover show only video cards (and ads where YouTube places them). Every shelf is hidden, not just Shorts shelves (e.g. Breaking News, Playables).
 
+### Watch page
+
+- Hide suggested / related videos beside the player (and below it on narrow layouts).
+- Preserve the playlist panel and live chat when present.
+
 ### Preserve Native YouTube
 
 - Search results retain normal infinite scrolling.
@@ -73,6 +78,7 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 - **Home and Discover URLs:** Home is `/feed/subscriptions`; Discover is YouTube's Home page at `/`. YouTube strips query parameters from `/`, so Discover cannot have its own URL. Internally the page types are `subscriptions` and `discover`.
 - **Sidebar:** YouTube's own entries are reused rather than adding new ones: the Subscriptions entry is relabeled Home, the Home entry is relabeled Discover. This keeps YouTube's navigation and current-page highlight. Hiding Shorts, putting Home above Discover (CSS `order`), and the icons (CSS masks, filled on the current page) are injected CSS. Labels, tooltips, and `aria-label`s are rewritten in TypeScript, re-applied by a MutationObserver on `ytd-app` because YouTube renders the sidebar lazily and can re-render it. That observer runs for the life of the tab.
 - **Redirect to Home:** Clicks on links to `/` other than the sidebar's Discover entry (e.g. the logo) are intercepted in the capture phase on `window` and turned into a click on YouTube's own Subscriptions sidebar link (an in-app navigation); if the sidebar is not rendered yet, the page is loaded normally. A full page load of `/` redirects with `location.replace` unless the Navigation Timing API reports a reload or Back/Forward, so reloading Discover keeps it and there are no redirect loops. Modified clicks (Ctrl/Shift/middle) are not intercepted; a new tab opened on `/` redirects to Home.
+- **Watch related videos:** Injected CSS hides `ytd-watch-flexy #related` for the life of the tab. That node holds the suggested list (and its loading skeleton) in both the side column and the below-player layout. Playlist (`ytd-playlist-panel-renderer`) and live chat are siblings under `#secondary-inner`, so they stay visible.
 
 ### YouTube DOM findings (verified November 2026)
 
@@ -90,6 +96,7 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 - Shorts in search results (and in Shorts shelves) are plain links with `href="/shorts/<id>"`. `/watch?v=<id>` plays a Short in the normal player, and YouTube does not redirect it back to `/shorts/`.
 - Sidebar: the full sidebar is `ytd-guide-section-renderer > #items > ytd-guide-entry-renderer` (the current page's entry has the `active` attribute); the collapsed sidebar is `ytd-mini-guide-entry-renderer` in a flex column (the current page's link has `aria-current="true"`). Each entry's direct child is `a#endpoint` with `href` and `title`; the label is `.title`, the icon `yt-icon.guide-icon`; mini entries also have an `aria-label` and a tooltip (`#tooltip`). The full sidebar's Shorts link has no `href` (only `title="Shorts"`); the mini one has `href="/shorts/"`. The mini sidebar renders only at medium widths, and on watch pages the sidebar may not be rendered until opened.
 - Clicking a sidebar link programmatically (`.click()`), even a hidden one, performs YouTube's normal in-app navigation.
+- Watch page: `#secondary-inner` holds playlist, chat, and `#related` as siblings. `#related` contains `ytd-watch-next-secondary-results-renderer` (suggested videos). On narrow layouts `#secondary` is `display: none` and `#related` appears below the player inside `ytd-watch-flexy`.
 
 ## Known Challenges
 
@@ -108,7 +115,7 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 | 3 | Implement the 12-video limit and Load More. | Complete |
 | 4 | Add Subscriptions and Discover navigation. | Complete |
 | 5 | Apply Shorts rules and preserve native features. | Complete |
-| 6 | Polish, test, and prepare for release. | Not started |
+| 6 | Polish, test, and prepare for release. | Complete |
 
 ## Progress
 
@@ -163,9 +170,19 @@ Detection only; YouTube's page is not modified.
 - Not explicitly tested: an in-app navigation to `/shorts/` that does not come from a link click (covered by the redirect after each navigation).
 - Known limitation: a direct visit or non-link navigation to `/shorts/<id>` may show the Shorts player briefly before the redirect.
 
+### Milestone 6 — Complete
+
+- Removed the temporary "YouTube Intentional active" badge and all navigation / feed debug console logging.
+- Watch pages hide suggested / related videos beside (or below) the player; playlists and live chat are unchanged.
+- README and manifest updated for the MVP release (`1.0.0`).
+- Decisions made at the start of the milestone: hide only `#related` (not the whole secondary column) so playlist and chat stay; no new permissions or packaging pipeline beyond the existing `dist/` Load unpacked flow.
+- New module `src/content/watchRelated.ts`; removed `activeIndicator.ts` and `debugLog.ts`; new selector `watchRelated`.
+- Verified: type check and build pass.
+- Manual verification for the user: reload the unpacked `dist/` extension, then confirm Home / Discover / sidebar / Shorts behavior still match Milestone 5, that watch pages show no related list while a playlist or chat still appears when applicable, and that DevTools shows no `[YouTube Intentional]` logs or active badge.
+
 ## Current Milestone
 
-Milestone 6 — Polish, test, and prepare for release (not started).
+Milestone 6 — Complete. MVP ready for local Load-unpacked use.
 
 ## Development Principle
 

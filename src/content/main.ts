@@ -1,20 +1,17 @@
-import { showActiveIndicator } from './activeIndicator';
-import { logFeedScan, logNavigation } from './debugLog';
 import { createFeedLimiter, isLimitedPage, type FeedLimiter } from './feedLimiter';
 import { interceptHomeLinks, redirectFreshDiscoverVisit } from './homeRedirect';
 import { interceptShortsLinks, redirectShortsPage } from './shortsRedirect';
 import { startSidebar } from './sidebar';
+import { hideWatchRelated } from './watchRelated';
 import { watchFeed } from './youtube/feedScanner';
 import { onNavigate } from './youtube/navigation';
 import { getPageType, isFeedPage } from './youtube/pageType';
 
-console.info('[YouTube Intentional] Content script loaded on', location.href);
-
 if (!redirectShortsPage() && !redirectFreshDiscoverVisit()) start();
 
 function start(): void {
-  showActiveIndicator();
   startSidebar();
+  hideWatchRelated();
   interceptHomeLinks();
   interceptShortsLinks();
 
@@ -30,7 +27,6 @@ function start(): void {
     if (redirectShortsPage()) return;
 
     const pageType = getPageType(location);
-    logNavigation(pageType);
 
     const limiter = isLimitedPage(pageType)
       ? createFeedLimiter(pageType, isHistoryNavigation)
@@ -39,7 +35,6 @@ function start(): void {
 
     if (isFeedPage(pageType)) {
       stopWatchingFeed = watchFeed(pageType, (scan) => {
-        logFeedScan(scan);
         limiter?.update(scan);
       });
     }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "YouTube Intentional",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Make YouTube a more intentional experience with finite, deliberate browsing.",
   "content_scripts": [
     {

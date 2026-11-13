@@ -19,6 +19,13 @@ export const SELECTORS = {
   subscriptionsPage: 'ytd-browse[page-subtype="subscriptions"]:not([hidden])',
   searchPage: 'ytd-search:not([hidden])',
 
+  /**
+   * Related / suggested videos on a watch page. Lives in the side column on
+   * wide layouts and below the player on narrow ones. Playlist and live chat
+   * are siblings, not descendants.
+   */
+  watchRelated: 'ytd-watch-flexy #related',
+
   /** The Home / Subscriptions video grid. */
   grid: 'ytd-rich-grid-renderer',
 
