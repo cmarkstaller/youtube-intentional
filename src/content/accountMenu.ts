@@ -8,6 +8,7 @@ import {
   type BatchPage,
 } from './batchSize';
 import { SELECTORS } from './youtube/selectors';
+import { whenAvailable } from './youtube/whenAvailable';
 
 const STYLE_ID = 'yti-account-menu-styles';
 const PANEL_ID = 'yti-batch-settings';
@@ -169,9 +170,12 @@ export function startAccountMenu(): void {
       ensurePanel();
     });
   });
-  observer.observe(document.querySelector(SELECTORS.popupContainer) ?? document.body, {
-    childList: true,
-    subtree: true,
+  whenAvailable(SELECTORS.popupContainer, (popup) => {
+    observer.observe(popup, {
+      childList: true,
+      subtree: true,
+    });
+    ensurePanel();
   });
   ensurePanel();
 }

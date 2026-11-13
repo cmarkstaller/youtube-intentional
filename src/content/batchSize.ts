@@ -55,13 +55,25 @@ export function onBatchSizeChange(listener: (page: BatchPage, size: number) => v
   return () => listeners.delete(listener);
 }
 
-/** Reads saved sizes before the feed limiter starts, so the first paint uses them. */
+/**
+ * Reads saved sizes. Startup does not wait on this: CSS and intercepts run
+ * with defaults, then listeners hear any stored values that differ.
+ */
 export async function loadBatchSizes(): Promise<void> {
   try {
     const stored = await chrome.storage.local.get(PAGES.map((page) => STORAGE_KEY[page]));
     const next = { ...current };
-    for (const page of PAGES) next[page] = normalizeBatchSize(stored[STORAGE_KEY[page]]);
+    const changed: Array<{ page: BatchPage; size: number }> = [];
+    for (const page of PAGES) {
+      const size = normalizeBatchSize(stored[STORAGE_KEY[page]]);
+      if (next[page] === size) continue;
+      next[page] = size;
+      changed.push({ page, size });
+    }
     current = next;
+    for (const { page, size } of changed) {
+      for (const listener of listeners) listener(page, size);
+    }
   } catch {
     // Keep the defaults if storage is unavailable.
   }

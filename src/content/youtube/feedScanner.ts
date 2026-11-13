@@ -1,5 +1,6 @@
 import type { FeedPageType } from './pageType';
 import { SELECTORS } from './selectors';
+import { whenAvailable } from './whenAvailable';
 
 export interface FeedScan {
   pageType: FeedPageType;
@@ -61,11 +62,12 @@ export function scanFeed(pageType: FeedPageType, container: HTMLElement): FeedSc
  * user scrolls, so a MutationObserver re-scans. Scans run at most once per
  * animation frame, before the browser paints, so callers can hide new cards
  * before they are ever shown. Until the page container exists, the observer
- * watches YouTube's page manager instead.
+ * watches YouTube's page manager (waiting for that node at document_start).
  */
 export function watchFeed(pageType: FeedPageType, onScan: (scan: FeedScan) => void): () => void {
   let container: HTMLElement | null = null;
   let frame: number | undefined;
+  let stopWaiting: (() => void) | undefined;
 
   const scheduleScan = (): void => {
     if (frame !== undefined) return;
@@ -83,10 +85,21 @@ export function watchFeed(pageType: FeedPageType, onScan: (scan: FeedScan) => vo
     }
   });
 
+  const observeRoot = (root: Element): void => {
+    observer.observe(root, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['hidden', 'page-subtype'],
+    });
+  };
+
   const attachToContainer = (): boolean => {
     const found = findFeedContainer(pageType);
     if (!found) return false;
 
+    stopWaiting?.();
+    stopWaiting = undefined;
     container = found;
     observer.disconnect();
     observer.observe(container, { childList: true, subtree: true });
@@ -95,16 +108,19 @@ export function watchFeed(pageType: FeedPageType, onScan: (scan: FeedScan) => vo
   };
 
   if (!attachToContainer()) {
-    const root = document.querySelector(SELECTORS.pageManager) ?? document.body;
-    observer.observe(root, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['hidden', 'page-subtype'],
-    });
+    const pageManager = document.querySelector(SELECTORS.pageManager);
+    if (pageManager) {
+      observeRoot(pageManager);
+    } else {
+      stopWaiting = whenAvailable(SELECTORS.pageManager, (element) => {
+        if (container) return;
+        if (!attachToContainer()) observeRoot(element);
+      });
+    }
   }
 
   return () => {
+    stopWaiting?.();
     observer.disconnect();
     if (frame !== undefined) cancelAnimationFrame(frame);
   };

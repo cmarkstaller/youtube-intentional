@@ -81,16 +81,18 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 - **Manifest:** `public/manifest.json` is copied to `dist/` unchanged. `dist/` is the folder loaded as the unpacked extension.
 - **Tooling:** Vite 6 (Vite 7 requires Node 20.19+; the dev machine runs Node 20.11). Dev dependencies are only `typescript`, `vite`, and `@types/chrome`.
 - **Permissions:** `storage`, for the Home and Discover batch-size settings. Content scripts declared in the manifest need no host permission.
+- **Injection timing:** The content script runs at `document_start` so redirects and CSS can apply before YouTube's first paint. `ytd-app`, `ytd-popup-container`, and `ytd-page-manager` may not exist yet; observers wait for those nodes (`src/content/youtube/whenAvailable.ts`) instead of falling back to `document.body`.
 - **Source layout:** Content-script code lives in `src/content/`. `src/content/youtube/` is the shared YouTube integration layer (selectors, page type, navigation, feed scanning). Page-specific features will go in their own modules and build on it. All YouTube DOM selectors live in `src/content/youtube/selectors.ts`.
 - **Navigation detection:** Listen for YouTube's `yt-navigate-finish` DOM event on `document`, with `popstate` as a fallback, deduplicated by URL, plus one run at startup. Page type is derived from the URL path, not from the event's `detail` (internal to YouTube, and not reliably readable from a content script's isolated world). Back/Forward is detected with the standard Navigation API (`navigation`'s `navigate` event, `navigationType === 'traverse'`), because YouTube fires `yt-navigate-finish` before `popstate` on Back.
-- **Feed scanning:** On Home, Subscriptions, and search only, a `MutationObserver` watches the visible page container and re-scans as cards render and as infinite scroll adds more. Scans run at most once per animation frame (before paint), so new cards can be hidden before they are shown. The observer is disconnected on every navigation. No observer runs on other pages.
-- **Feed limit (Home and Subscriptions):** Only real video cards count toward the limit; ads, shelves, and Shorts after the last shown video are hidden too. The grid's `#contents` gets a class, and CSS hides every item not marked revealed, so cards YouTube appends stay hidden until the next scan. Infinite scroll is stopped by hiding the continuation with `display: none`: a hidden element never intersects the viewport, so YouTube never fetches. The continuation is shown only while fewer videos are loaded than the current limit, so YouTube fetches just enough. Styles are injected from TypeScript so they can use `SELECTORS`.
-- **Shelves and Shorts on Home and Discover:** The feed limiter never marks shelf rows (`ytd-rich-section-renderer`) or Shorts cards as revealed, so the existing CSS keeps them hidden; they never count toward the limit.
+- **Feed scanning:** On Home and Discover only, a `MutationObserver` watches the visible page container and re-scans as cards render and as YouTube appends more. Search is left native (no observer). Scans run at most once per animation frame (before paint). The observer is disconnected on every navigation. No observer runs on other pages.
+- **Feed limit (Home and Subscriptions):** Only real video cards count toward the limit; ads after the last shown video are hidden too. Limiter CSS is injected at startup and is page-scoped (`ytd-browse[page-subtype=home|subscriptions]:not([hidden])`), so the grid hides unrevealed items as soon as it paints, without a class on `#contents`. Cards YouTube appends stay hidden until the next scan marks them revealed. Infinite scroll is stopped by hiding the continuation with `display: none`: a hidden element never intersects the viewport, so YouTube never fetches. The continuation is shown only while fewer videos are loaded than the current limit, so YouTube fetches just enough. Styles are injected from TypeScript so they can use `SELECTORS`.
+- **Shelves and Shorts on Home and Discover:** Page-scoped CSS hides shelf rows (`ytd-rich-section-renderer`) and Shorts cards (`:has` the Shorts lockup / `/shorts/` link) on those grids as soon as they exist. The feed limiter also never marks them revealed, so they never count toward the limit.
+- **Startup vs storage:** CSS, sidebar, account menu, watch-page hiding, and click intercepts start immediately with the default batch size (9). `chrome.storage.local.get` runs after those listeners are registered; if a saved size differs, `loadBatchSizes` notifies the same listeners as a slider change. Redirects still run before anything else.
 - **Shorts to watch player:** Clicks on `a[href^="/shorts/"]` are intercepted in the capture phase on `window` and load `/watch?v=<id>` with `location.assign` (a full page load: there is no documented way to start an in-app navigation without a link on screen). Any page that is still a `/shorts/` URL, at startup or after an in-app navigation, is redirected with `location.replace`, so the Shorts URL stays out of history. Modified clicks are not intercepted; the new tab redirects on load.
 - **Load More state:** The number of videos shown is kept per page in memory. Back/Forward restores it; any other navigation to the page resets it to that page's batch size (default 9). The button label is "Load N More". The button is removed when all loaded videos are shown and YouTube has no continuation. Moving that page's slider sets the shown count to the new size immediately.
 - **Batch size setting:** `src/content/accountMenu.ts` prepends a panel with two range inputs (Home, Discover) to the account menu's `#sections`. The menu is `ytd-multi-page-menu-renderer[menu-style="multi-page-menu-style-type-system"]` — the avatar menu when signed in, and the menu the settings gear opens when signed out. Submenus are a nested renderer without that `menu-style`, and YouTube sets `hidden` on the root `#container` while one is open, so the sliders stay on the root page. YouTube builds the menu lazily and can rebuild it, so a MutationObserver on `ytd-popup-container` re-inserts the panel. Values live in `chrome.storage.local` (`batchSizeSubscriptions`, `batchSizeDiscover`). This tab updates itself in `setBatchSize`; `storage.onChanged` applies writes from other tabs and ignores the echo of our own write. Slider chrome is grayscale (track and thumb follow `html[dark]`); ticks are one mark per step from 3–30 with only the endpoints labeled.
 - **Home and Discover URLs:** Home is `/feed/subscriptions`; Discover is YouTube's Home page at `/`. YouTube strips query parameters from `/`, so Discover cannot have its own URL. Internally the page types are `subscriptions` and `discover`.
-- **Sidebar:** YouTube's own entries are reused rather than adding new ones: the Subscriptions entry is relabeled Home, the Home entry is relabeled Discover. This keeps YouTube's navigation and current-page highlight. Hiding Shorts, putting Home above Discover (CSS `order`), and the icons (CSS masks, filled on the current page) are injected CSS. Labels, tooltips, and `aria-label`s are rewritten in TypeScript, re-applied by a MutationObserver on `ytd-app` because YouTube renders the sidebar lazily and can re-render it. That observer runs for the life of the tab.
+- **Sidebar:** YouTube's own entries are reused rather than adding new ones: the Subscriptions entry is relabeled Home, the Home entry is relabeled Discover. This keeps YouTube's navigation and current-page highlight. Hiding Shorts, putting Home above Discover (CSS `order`), and the icons (CSS masks, filled on the current page) are injected CSS. Labels, tooltips, and `aria-label`s are rewritten in TypeScript, re-applied by a MutationObserver on `ytd-app` because YouTube renders the sidebar lazily and can re-render it. That observer waits for `ytd-app` and runs for the life of the tab.
 - **Redirect to Home:** Clicks on links to `/` other than the sidebar's Discover entry (e.g. the logo) are intercepted in the capture phase on `window` and turned into a click on YouTube's own Subscriptions sidebar link (an in-app navigation); if the sidebar is not rendered yet, the page is loaded normally. A full page load of `/` redirects with `location.replace` unless the Navigation Timing API reports a reload or Back/Forward, so reloading Discover keeps it and there are no redirect loops. Modified clicks (Ctrl/Shift/middle) are not intercepted; a new tab opened on `/` redirects to Home.
 - **Watch related videos:** Injected CSS hides `ytd-watch-flexy #related` for the life of the tab. That node holds the suggested list (and its loading skeleton) in both the side column and the below-player layout. Playlist (`ytd-playlist-panel-renderer`) and live chat are siblings under `#secondary-inner`, so they stay visible. On wide layouts without a playlist or live chat, `#columns` becomes a three-track grid so `#primary` stays the same width it had beside the sidebar (via YouTube's `--ytd-watch-flexy-sidebar-width` and horizontal margin variables) but sits centered; theater, fullscreen, and single-column layouts are unchanged.
 
@@ -130,6 +132,8 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 | 4 | Add Subscriptions and Discover navigation. | Complete |
 | 5 | Apply Shorts rules and preserve native features. | Complete |
 | 6 | Polish, test, and prepare for release. | Complete |
+| — | Post-MVP: batch size | Complete |
+| — | Post-MVP: startup smoothness | Complete |
 
 ## Progress
 
@@ -197,16 +201,24 @@ Detection only; YouTube's page is not modified.
 
 ## Current Milestone
 
-Post-MVP — Batch size (in progress). See Progress below.
+None. MVP and the post-MVP batch-size and startup-smoothness work are complete.
 
-### Post-MVP — Batch size
+Optional next: narrower MutationObservers (sidebar, feed `#contents`, account menu) if YouTube feels janky on busy pages.
+
+### Post-MVP — Batch size — Complete
 
 - Home and Discover each show **9 videos by default** (was 12). Per-page batch size is **3–30, step 3**, persisted in `chrome.storage.local`. **Load N More** and the visible count use that page's setting; moving a slider applies immediately on the open feed.
 - **`src/content/batchSize.ts`** — read/write/normalize sizes, load at startup, sync across tabs via `storage.onChanged`.
 - **`src/content/accountMenu.ts`** — Home and Discover sliders at the top of the account menu; grayscale styling, endpoint labels, step ticks.
 - **`feedLimiter.ts`**, **`main.ts`**, **`selectors.ts`**, **`manifest.json`** (`storage`), **README** updated accordingly.
-- Manually verified: logged-in avatar menu, 9-video default, immediate apply when changing Home (e.g. 24 then back to 9), grayscale slider UI approved by user.
-- Still worth spot-checking: signed-out settings gear, values after browser restart, Discover slider on the Discover grid.
+- Manually verified by the user: logged-in avatar menu, 9-video default, immediate apply when changing Home (e.g. 24 then back to 9), grayscale slider UI.
+
+### Post-MVP — Startup smoothness — Complete
+
+- Content script `run_at` is `document_start`. CSS (feed limit, shelves/Shorts, sidebar, watch related) and click intercepts start without waiting for `chrome.storage`. Saved batch sizes apply when storage returns.
+- Search is no longer watched by the feed MutationObserver.
+- Observers attach to `ytd-app` / `ytd-popup-container` / `ytd-page-manager` once those nodes exist (`src/content/youtube/whenAvailable.ts`).
+- Manually verified by the user in their Chrome profile: Home / Discover / search / watch / Shorts / sidebar behavior still correct, with a smoother first paint and no flash of the full recommendation grid.
 
 ## Development Principle
 

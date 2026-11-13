@@ -1,4 +1,5 @@
 import { SELECTORS } from './youtube/selectors';
+import { whenAvailable } from './youtube/whenAvailable';
 
 const STYLE_ID = 'yti-sidebar-styles';
 
@@ -77,11 +78,13 @@ ${iconRule(SELECTORS.guideHomeEntry, DISCOVER_ICON)}
  * YouTube's own entries are reused, so their links, navigation, and "current
  * page" highlight keep working. Layout and icons are CSS. Labels are text, so
  * they are rewritten in place; YouTube renders the sidebar lazily and can
- * re-render it at any time, so a MutationObserver re-applies them. It runs for
- * the life of the tab, because the sidebar exists on every page.
+ * re-render it at any time, so a MutationObserver on `ytd-app` re-applies
+ * them. At `document_start` that node may not exist yet, so the observer
+ * waits for it. It runs for the life of the tab.
  */
 export function startSidebar(): void {
   injectStyles();
+  applyLabels();
 
   let frame: number | undefined;
   const observer = new MutationObserver(() => {
@@ -91,14 +94,17 @@ export function startSidebar(): void {
       applyLabels();
     });
   });
-  observer.observe(document.querySelector(SELECTORS.app) ?? document.body, {
-    childList: true,
-    subtree: true,
-    characterData: true,
-    attributes: true,
-    attributeFilter: ['title', 'aria-label'],
+
+  whenAvailable(SELECTORS.app, (app) => {
+    observer.observe(app, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ['title', 'aria-label'],
+    });
+    applyLabels();
   });
-  applyLabels();
 }
 
 /** Only writes values that differ, so its own changes don't trigger it again. */

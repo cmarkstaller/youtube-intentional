@@ -6,28 +6,36 @@ import { SELECTORS } from './youtube/selectors';
 export type LimitedPageType = Extract<PageType, BatchPage>;
 
 const CLASS = {
-  limited: 'yti-limited',
   revealed: 'yti-revealed',
   loading: 'yti-loading',
   loadMore: 'yti-load-more',
 } as const;
 
+const LIMITED_PAGES = `:is(${SELECTORS.discoverPage}, ${SELECTORS.subscriptionsPage})`;
+
 const STYLE_ID = 'yti-feed-limiter-styles';
 
 /**
- * Grid items are hidden unless marked revealed, so cards YouTube appends are
- * hidden before the next scan runs. The continuation (YouTube's infinite
- * scroll trigger) is hidden unless loading: a `display: none` element never
- * intersects the viewport, so YouTube does not fetch more.
+ * Hiding is page-scoped so it applies as soon as YouTube paints the grid,
+ * without waiting for JS to mark `#contents`. Items stay hidden unless
+ * marked revealed. Shelves and Shorts are never shown on these pages.
+ * The continuation is hidden unless loading: a `display: none` element
+ * never intersects the viewport, so YouTube does not fetch more.
  *
  * YouTube's theme CSS variables have obfuscated names, so the button uses
  * YouTube's light and dark theme colors directly.
  */
 const STYLES = `
-.${CLASS.limited} > :not(.${CLASS.revealed}, ${SELECTORS.continuation}) {
+${LIMITED_PAGES} ${SELECTORS.gridContents} > :not(.${CLASS.revealed}, ${SELECTORS.continuation}) {
   display: none !important;
 }
-.${CLASS.limited}:not(.${CLASS.loading}) > ${SELECTORS.continuation} {
+${LIMITED_PAGES} ${SELECTORS.gridContents}:not(.${CLASS.loading}) > ${SELECTORS.continuation} {
+  display: none !important;
+}
+${LIMITED_PAGES} ${SELECTORS.gridContents} > ${SELECTORS.gridSection} {
+  display: none !important;
+}
+${LIMITED_PAGES} ${SELECTORS.gridCard}:has(${SELECTORS.shortsCardMarker}) {
   display: none !important;
 }
 .${CLASS.loadMore} {
@@ -81,7 +89,6 @@ export function isLimitedPage(pageType: PageType): pageType is LimitedPageType {
  * Moving the slider sets the shown count to the new size immediately.
  */
 export function createFeedLimiter(pageType: LimitedPageType, keepRevealed: boolean): FeedLimiter {
-  injectStyles();
   if (!keepRevealed || !revealLimits.has(pageType)) {
     revealLimits.set(pageType, getBatchSize(pageType));
   }
@@ -106,7 +113,7 @@ export function createFeedLimiter(pageType: LimitedPageType, keepRevealed: boole
 
   const clearContents = (): void => {
     if (!contents) return;
-    contents.classList.remove(CLASS.limited, CLASS.loading);
+    contents.classList.remove(CLASS.loading);
     for (const item of contents.children) item.classList.remove(CLASS.revealed);
     contents = null;
   };
@@ -134,7 +141,6 @@ export function createFeedLimiter(pageType: LimitedPageType, keepRevealed: boole
     }
 
     const loading = scan.hasContinuation && scan.videoCards.length < limit;
-    contents.classList.add(CLASS.limited);
     contents.classList.toggle(CLASS.loading, loading);
 
     const showButton = !loading && (scan.videoCards.length > limit || scan.hasContinuation);
@@ -178,7 +184,8 @@ function createLoadMore(onClick: () => void): LoadMore {
   };
 }
 
-function injectStyles(): void {
+/** Injected at startup so Home / Discover hide extra cards before the first scan. */
+export function injectFeedLimiterStyles(): void {
   if (document.getElementById(STYLE_ID)) return;
   const style = document.createElement('style');
   style.id = STYLE_ID;
