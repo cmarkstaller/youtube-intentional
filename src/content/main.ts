@@ -1,35 +1,43 @@
 import { showActiveIndicator } from './activeIndicator';
 import { logFeedScan, logNavigation } from './debugLog';
 import { createFeedLimiter, isLimitedPage, type FeedLimiter } from './feedLimiter';
+import { interceptHomeLinks, redirectFreshDiscoverVisit } from './homeRedirect';
+import { startSidebar } from './sidebar';
 import { watchFeed } from './youtube/feedScanner';
 import { onNavigate } from './youtube/navigation';
 import { getPageType, isFeedPage } from './youtube/pageType';
 
 console.info('[YouTube Intentional] Content script loaded on', location.href);
 
-showActiveIndicator();
+if (!redirectFreshDiscoverVisit()) start();
 
-let stopWatchingFeed: (() => void) | null = null;
-let feedLimiter: FeedLimiter | null = null;
+function start(): void {
+  showActiveIndicator();
+  startSidebar();
+  interceptHomeLinks();
 
-onNavigate(({ isHistoryNavigation }) => {
-  stopWatchingFeed?.();
-  stopWatchingFeed = null;
-  feedLimiter?.stop();
-  feedLimiter = null;
+  let stopWatchingFeed: (() => void) | null = null;
+  let feedLimiter: FeedLimiter | null = null;
 
-  const pageType = getPageType(location);
-  logNavigation(pageType);
+  onNavigate(({ isHistoryNavigation }) => {
+    stopWatchingFeed?.();
+    stopWatchingFeed = null;
+    feedLimiter?.stop();
+    feedLimiter = null;
 
-  const limiter = isLimitedPage(pageType)
-    ? createFeedLimiter(pageType, isHistoryNavigation)
-    : null;
-  feedLimiter = limiter;
+    const pageType = getPageType(location);
+    logNavigation(pageType);
 
-  if (isFeedPage(pageType)) {
-    stopWatchingFeed = watchFeed(pageType, (scan) => {
-      logFeedScan(scan);
-      limiter?.update(scan);
-    });
-  }
-});
+    const limiter = isLimitedPage(pageType)
+      ? createFeedLimiter(pageType, isHistoryNavigation)
+      : null;
+    feedLimiter = limiter;
+
+    if (isFeedPage(pageType)) {
+      stopWatchingFeed = watchFeed(pageType, (scan) => {
+        logFeedScan(scan);
+        limiter?.update(scan);
+      });
+    }
+  });
+}

@@ -2,7 +2,7 @@ import { scanFeed, type FeedScan } from './youtube/feedScanner';
 import type { PageType } from './youtube/pageType';
 import { SELECTORS } from './youtube/selectors';
 
-export type LimitedPageType = Extract<PageType, 'home' | 'subscriptions'>;
+export type LimitedPageType = Extract<PageType, 'discover' | 'subscriptions'>;
 
 const BATCH_SIZE = 12;
 
@@ -69,11 +69,11 @@ export interface FeedLimiter {
 }
 
 export function isLimitedPage(pageType: PageType): pageType is LimitedPageType {
-  return pageType === 'home' || pageType === 'subscriptions';
+  return pageType === 'discover' || pageType === 'subscriptions';
 }
 
 /**
- * Limits the Home / Subscriptions grid to the first `BATCH_SIZE` videos and
+ * Limits the Discover / Subscriptions grid to the first `BATCH_SIZE` videos and
  * adds a "Load 12 More" button. Ads, shelves, and Shorts after the last shown
  * video are hidden too. `keepRevealed` restores the previous count for this
  * page (Back/Forward); otherwise it resets to `BATCH_SIZE`.

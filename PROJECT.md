@@ -24,6 +24,13 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 - No automatic infinite scrolling.
 - Discover should be a deliberate choice rather than the default.
 
+### Navigation
+
+- Use YouTube's native left sidebar (full and collapsed); no new buttons elsewhere.
+- Sidebar order: Home, Discover, You. Home is the Subscriptions feed; there is no separate Subscriptions entry.
+- The YouTube logo and fresh visits to youtube.com open Home.
+- Remove the Shorts entry from the sidebar.
+
 ### Shorts
 
 - Hide Shorts from Home, Subscriptions, and Discover.
@@ -55,6 +62,9 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 - **Feed scanning:** On Home, Subscriptions, and search only, a `MutationObserver` watches the visible page container and re-scans as cards render and as infinite scroll adds more. Scans run at most once per animation frame (before paint), so new cards can be hidden before they are shown. The observer is disconnected on every navigation. No observer runs on other pages.
 - **Feed limit (Home and Subscriptions):** Only real video cards count toward the limit; ads, shelves, and Shorts after the last shown video are hidden too. The grid's `#contents` gets a class, and CSS hides every item not marked revealed, so cards YouTube appends stay hidden until the next scan. Infinite scroll is stopped by hiding the continuation with `display: none`: a hidden element never intersects the viewport, so YouTube never fetches. The continuation is shown only while fewer videos are loaded than the current limit, so YouTube fetches just enough. Styles are injected from TypeScript so they can use `SELECTORS`.
 - **Load More state:** The number of videos shown is kept per page in memory. Back/Forward restores it; any other navigation to the page resets it to 12. The button is removed when all loaded videos are shown and YouTube has no continuation.
+- **Home and Discover URLs:** Home is `/feed/subscriptions`; Discover is YouTube's Home page at `/`. YouTube strips query parameters from `/`, so Discover cannot have its own URL. Internally the page types are `subscriptions` and `discover`.
+- **Sidebar:** YouTube's own entries are reused rather than adding new ones: the Subscriptions entry is relabeled Home, the Home entry is relabeled Discover. This keeps YouTube's navigation and current-page highlight. Hiding Shorts, putting Home above Discover (CSS `order`), and the icons (CSS masks, filled on the current page) are injected CSS. Labels, tooltips, and `aria-label`s are rewritten in TypeScript, re-applied by a MutationObserver on `ytd-app` because YouTube renders the sidebar lazily and can re-render it. That observer runs for the life of the tab.
+- **Redirect to Home:** Clicks on links to `/` other than the sidebar's Discover entry (e.g. the logo) are intercepted in the capture phase on `window` and turned into a click on YouTube's own Subscriptions sidebar link (an in-app navigation); if the sidebar is not rendered yet, the page is loaded normally. A full page load of `/` redirects with `location.replace` unless the Navigation Timing API reports a reload or Back/Forward, so reloading Discover keeps it and there are no redirect loops. Modified clicks (Ctrl/Shift/middle) are not intercepted; a new tab opened on `/` redirects to Home.
 
 ### YouTube DOM findings (verified November 2026)
 
@@ -68,6 +78,8 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 - On Back, YouTube fires `yt-navigate-finish` before `popstate`.
 - Some navigations (e.g. clicking the logo from a watch page) do a full page reload instead of an in-app navigation.
 - Logged-out Home with no watch history shows an empty "Try searching to get started" state with no cards.
+- Sidebar: the full sidebar is `ytd-guide-section-renderer > #items > ytd-guide-entry-renderer` (the current page's entry has the `active` attribute); the collapsed sidebar is `ytd-mini-guide-entry-renderer` in a flex column (the current page's link has `aria-current="true"`). Each entry's direct child is `a#endpoint` with `href` and `title`; the label is `.title`, the icon `yt-icon.guide-icon`; mini entries also have an `aria-label` and a tooltip (`#tooltip`). The full sidebar's Shorts link has no `href` (only `title="Shorts"`); the mini one has `href="/shorts/"`. The mini sidebar renders only at medium widths, and on watch pages the sidebar may not be rendered until opened.
+- Clicking a sidebar link programmatically (`.click()`), even a hidden one, performs YouTube's normal in-app navigation.
 
 ## Known Challenges
 
@@ -84,7 +96,7 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 | 1 | Create and load the extension. | Complete |
 | 2 | Detect YouTube pages and relevant elements. | Complete |
 | 3 | Implement the 12-video limit and Load More. | Complete |
-| 4 | Add Subscriptions and Discover navigation. | Not started |
+| 4 | Add Subscriptions and Discover navigation. | Complete |
 | 5 | Apply Shorts rules and preserve native features. | Not started |
 | 6 | Polish, test, and prepare for release. | Not started |
 
@@ -120,9 +132,20 @@ Detection only; YouTube's page is not modified.
 - Verified by injecting the built script into a logged-out channel Videos tab made to look like Home (`page-subtype="home"`, path `/`): 12 of 30 cards shown; scrolling loaded nothing; clicks showed 24, then 36 (fetching 30 more when the spinner scrolled into view), then 48 and 60; all revealed thumbnails loaded on scroll; going to a watch page removed every extension element and class; Back restored 36 videos; with the continuation removed, the button disappeared once all 60 were shown; in-app search still scrolled infinitely (18 to 40 results) with no extension elements.
 - Manually verified by the user as an installed extension in their logged-in Chrome profile: the limit and Load More on Home and Subscriptions, Back restoring the count, reset on other navigation, dark theme, and search and other pages unaffected. Shorts shelves among the first 12 videos still appear, as expected until Milestone 5.
 
+### Milestone 4 — Complete
+
+- Sidebar (full and collapsed) shows Home, Discover, You; Shorts is hidden. Home is the Subscriptions feed with a house icon; Discover is YouTube's recommendations with a compass icon. The current page's entry is highlighted by YouTube and gets a filled icon.
+- The logo and links to `/` go to Home; a fresh visit to youtube.com redirects to Home; reload and Back/Forward stay on Discover.
+- Discover keeps the 12-video limit and Load More (it is the same page Milestone 3 limited as Home).
+- Decisions made at the start of the milestone: Home replaces the separate Subscriptions entry; Discover sits below Home.
+- New modules `src/content/sidebar.ts` and `src/content/homeRedirect.ts`; page type `home` renamed to `discover`.
+- Verified by injecting the built script into a logged-out Chrome tab: fresh load of `/` redirected to `/feed/subscriptions`; full sidebar showed Home (active), Discover, You, History with Shorts hidden; clicking Discover navigated in-app to `/` with Discover highlighted and Load More present; clicking the logo navigated in-app to `/feed/subscriptions` with Home highlighted; Back returned to Discover; reload of `/` stayed on Discover; the mini sidebar at 1100 px showed Home, Discover, You with matching tooltips and `aria-label`s and a filled icon on the current page; icons followed dark theme; the logo on a watch page navigated in-app to Home, and on a freshly loaded watch page (sidebar not rendered) loaded Home normally.
+- Manually verified by the user as an installed extension in their logged-in Chrome profile: landing on Home from youtube.com, the full and collapsed sidebars (Home, Discover, You, no Shorts), Discover with the 12-video limit, the logo returning to Home, Back and reload staying on Discover, and search and other native pages unaffected.
+- Known limitations: on a fresh visit to youtube.com, Discover may be visible briefly before the redirect. Keyboard focus order in the sidebar is Discover then Home (CSS `order` changes only the visual order). Labels are English.
+
 ## Current Milestone
 
-Milestone 4 — Add Subscriptions and Discover navigation (not started).
+Milestone 5 — Apply Shorts rules and preserve native features (not started).
 
 ## Development Principle
 

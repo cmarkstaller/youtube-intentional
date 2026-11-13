@@ -13,13 +13,13 @@ export interface FeedScan {
 }
 
 const CONTAINER_SELECTOR: Record<FeedPageType, string> = {
-  home: SELECTORS.homePage,
+  discover: SELECTORS.discoverPage,
   subscriptions: SELECTORS.subscriptionsPage,
   search: SELECTORS.searchPage,
 };
 
 const CARD_SELECTOR: Record<FeedPageType, string> = {
-  home: SELECTORS.gridCard,
+  discover: SELECTORS.gridCard,
   subscriptions: SELECTORS.gridCard,
   search: SELECTORS.searchCard,
 };
