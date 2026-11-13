@@ -69,6 +69,12 @@ export const SELECTORS = {
   /** Any link to YouTube's Home page, e.g. the logo. */
   homeLink: 'a[href="/"]',
 
+  /** Full left sidebar (drawer). Mini sidebar is a separate custom element. */
+  guideRenderer: 'ytd-guide-renderer',
+  miniGuideRenderer: 'ytd-mini-guide-renderer',
+  /** Drawer that holds the full sidebar; a sibling of the page, not the feed. */
+  guideDrawer: 'ytd-app #guide',
+
   /** An entry in the full left sidebar or the collapsed "mini" sidebar. */
   guideEntry: 'ytd-guide-entry-renderer, ytd-mini-guide-entry-renderer',
 
@@ -103,10 +109,22 @@ export const SELECTORS = {
   guideEntryText: '.title, #tooltip',
 
   /**
+   * Avatar (signed in) or settings gear (signed out) that opens the account menu.
+   * `#avatar-btn` is the circle itself; it can sit in a different host on watch.
+   */
+  topbarMenuButton: 'ytd-topbar-menu-button-renderer, #avatar-btn',
+
+  /** Dropdown host YouTube uses for popups; closed ones set `aria-hidden="true"`. */
+  popupDropdown: 'tp-yt-iron-dropdown',
+
+  /**
    * Item list of the root account menu (avatar when signed in, settings gear
    * when signed out). Submenus are a nested renderer without this
    * `menu-style`, and YouTube hides this menu's `#container` while one is open.
    */
+  accountMenuRenderer:
+    'ytd-multi-page-menu-renderer[menu-style="multi-page-menu-style-type-system"]',
+
   accountMenuSections:
     'ytd-multi-page-menu-renderer[menu-style="multi-page-menu-style-type-system"] > #container > #sections',
 

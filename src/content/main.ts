@@ -37,8 +37,8 @@ function start(): void {
 
     const limiter = createFeedLimiter(pageType, isHistoryNavigation);
     feedLimiter = limiter;
-    stopWatchingFeed = watchFeed(pageType, (scan) => {
-      limiter.update(scan);
+    stopWatchingFeed = watchFeed(pageType, (container) => {
+      limiter.update(container);
     });
   });
 

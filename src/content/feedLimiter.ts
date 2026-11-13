@@ -1,5 +1,4 @@
 import { getBatchSize, onBatchSizeChange, type BatchPage } from './batchSize';
-import { scanFeed, type FeedScan } from './youtube/feedScanner';
 import type { PageType } from './youtube/pageType';
 import { SELECTORS } from './youtube/selectors';
 
@@ -71,7 +70,7 @@ ${SELECTORS.darkTheme} .${CLASS.loadMore} > button:hover {
 const revealLimits = new Map<LimitedPageType, number>();
 
 export interface FeedLimiter {
-  update(scan: FeedScan): void;
+  update(container: HTMLElement): void;
   stop(): void;
 }
 
@@ -100,7 +99,7 @@ export function createFeedLimiter(pageType: LimitedPageType, keepRevealed: boole
 
   const loadMore = createLoadMore(() => {
     revealLimits.set(pageType, getLimit() + getBatchSize(pageType));
-    if (container?.isConnected) update(scanFeed(pageType, container));
+    if (container?.isConnected) update(container);
   });
   loadMore.setSize(getBatchSize(pageType));
 
@@ -108,7 +107,7 @@ export function createFeedLimiter(pageType: LimitedPageType, keepRevealed: boole
     if (page !== pageType) return;
     revealLimits.set(pageType, size);
     loadMore.setSize(size);
-    if (container?.isConnected) update(scanFeed(pageType, container));
+    if (container?.isConnected) update(container);
   });
 
   const clearContents = (): void => {
@@ -118,9 +117,9 @@ export function createFeedLimiter(pageType: LimitedPageType, keepRevealed: boole
     contents = null;
   };
 
-  function update(scan: FeedScan): void {
-    container = scan.container;
-    const found = container.querySelector<HTMLElement>(SELECTORS.gridContents);
+  function update(page: HTMLElement): void {
+    container = page;
+    const found = page.querySelector<HTMLElement>(SELECTORS.gridContents);
     const grid = found?.closest<HTMLElement>(SELECTORS.grid);
     if (found !== contents) clearContents();
     if (!found || !grid) {
@@ -130,20 +129,26 @@ export function createFeedLimiter(pageType: LimitedPageType, keepRevealed: boole
     contents = found;
 
     const limit = getLimit();
-    const lastShownVideo = scan.videoCards[limit - 1];
-    const shortsCards = new Set<Element>(scan.shortsCards);
     let revealing = true;
+    let videoCount = 0;
+    let hasContinuation = false;
     for (const item of contents.children) {
-      if (item.matches(SELECTORS.continuation)) continue;
-      const alwaysHidden = shortsCards.has(item) || item.matches(SELECTORS.gridSection);
+      if (item.matches(SELECTORS.continuation)) {
+        hasContinuation = true;
+        continue;
+      }
+      const alwaysHidden =
+        item.matches(SELECTORS.gridSection) || Boolean(item.querySelector(SELECTORS.shortsCardMarker));
       item.classList.toggle(CLASS.revealed, revealing && !alwaysHidden);
-      if (item === lastShownVideo) revealing = false;
+      if (alwaysHidden || item.querySelector(SELECTORS.adCardMarker)) continue;
+      videoCount += 1;
+      if (videoCount === limit) revealing = false;
     }
 
-    const loading = scan.hasContinuation && scan.videoCards.length < limit;
+    const loading = hasContinuation && videoCount < limit;
     contents.classList.toggle(CLASS.loading, loading);
 
-    const showButton = !loading && (scan.videoCards.length > limit || scan.hasContinuation);
+    const showButton = !loading && (videoCount > limit || hasContinuation);
     if (!showButton) {
       loadMore.element.remove();
     } else if (grid.nextElementSibling !== loadMore.element) {

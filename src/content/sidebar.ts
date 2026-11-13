@@ -78,9 +78,9 @@ ${iconRule(SELECTORS.guideHomeEntry, DISCOVER_ICON)}
  * YouTube's own entries are reused, so their links, navigation, and "current
  * page" highlight keep working. Layout and icons are CSS. Labels are text, so
  * they are rewritten in place; YouTube renders the sidebar lazily and can
- * re-render it at any time, so a MutationObserver on `ytd-app` re-applies
- * them. At `document_start` that node may not exist yet, so the observer
- * waits for it. It runs for the life of the tab.
+ * re-render it, so observers on the guide drawer and mini-guide re-apply them.
+ * Those trees are far smaller than `ytd-app`, so feed mutations do not wake
+ * the label rewriter. Entry nodes are cached until they disconnect.
  */
 export function startSidebar(): void {
   injectStyles();
@@ -95,8 +95,12 @@ export function startSidebar(): void {
     });
   });
 
-  whenAvailable(SELECTORS.app, (app) => {
-    observer.observe(app, {
+  const observedRoots = new Set<Element>();
+  const observeRoot = (root: Element): void => {
+    if (observedRoots.has(root)) return;
+    observedRoots.add(root);
+    cachedEntries = LABELS.map(() => []);
+    observer.observe(root, {
       childList: true,
       subtree: true,
       characterData: true,
@@ -104,13 +108,39 @@ export function startSidebar(): void {
       attributeFilter: ['title', 'aria-label'],
     });
     applyLabels();
+  };
+
+  const attachGuideRoots = (): void => {
+    for (const root of document.querySelectorAll(
+      `${SELECTORS.guideDrawer}, ${SELECTORS.guideRenderer}, ${SELECTORS.miniGuideRenderer}`,
+    )) {
+      observeRoot(root);
+    }
+  };
+
+  whenAvailable(SELECTORS.guideRenderer, observeRoot);
+  whenAvailable(SELECTORS.miniGuideRenderer, observeRoot);
+  whenAvailable(SELECTORS.app, (app) => {
+    attachGuideRoots();
+    // Direct children only: the feed lives deeper, so this does not see card
+    // mutations. It does see `#guide` and the mini-guide mounting.
+    new MutationObserver(attachGuideRoots).observe(app, { childList: true });
   });
 }
 
+/** Cached Home / Discover entries; empty arrays mean "look up again". */
+let cachedEntries: Element[][] = LABELS.map(() => []);
+
 /** Only writes values that differ, so its own changes don't trigger it again. */
 function applyLabels(): void {
-  for (const { entry, label } of LABELS) {
-    for (const element of document.querySelectorAll(entry)) {
+  for (let i = 0; i < LABELS.length; i++) {
+    const { entry, label } = LABELS[i]!;
+    let elements = cachedEntries[i] ?? [];
+    if (elements.length === 0 || elements.some((element) => !element.isConnected)) {
+      elements = collectEntries(entry);
+      cachedEntries[i] = elements;
+    }
+    for (const element of elements) {
       const link = element.querySelector(SELECTORS.guideEntryLink);
       if (link) {
         setAttribute(link, 'title', label);
@@ -121,6 +151,26 @@ function applyLabels(): void {
       }
     }
   }
+}
+
+function collectEntries(selector: string): Element[] {
+  const roots = document.querySelectorAll(
+    `${SELECTORS.guideDrawer}, ${SELECTORS.guideRenderer}, ${SELECTORS.miniGuideRenderer}`,
+  );
+  if (roots.length === 0) return [...document.querySelectorAll(selector)];
+
+  const elements: Element[] = [];
+  const seen = new Set<Element>();
+  const add = (element: Element): void => {
+    if (seen.has(element)) return;
+    seen.add(element);
+    elements.push(element);
+  };
+  for (const root of roots) {
+    if (root.matches(selector)) add(root);
+    for (const match of root.querySelectorAll(selector)) add(match);
+  }
+  return elements;
 }
 
 function setAttribute(element: Element, name: string, value: string): void {

@@ -154,42 +154,110 @@ ${SELECTORS.darkTheme} #${PANEL_ID} .yti-batch-ends {
 
 /**
  * Puts a Home slider and a Discover slider at the top of YouTube's account
- * menu. YouTube creates that menu lazily and can rebuild it, so a
- * MutationObserver on the popup container re-inserts the panel. It runs for
- * the life of the tab.
+ * menu. YouTube creates that menu lazily, nested inside `ytd-popup-container`
+ * (often by filling a dropdown that already exists), so watching the popup
+ * host's direct children is not enough. Opening the avatar / settings-gear
+ * button arms a short-lived subtree observer on the popup host until the
+ * sliders are in the open dropdown. YouTube can keep a previous menu in the
+ * DOM; the panel is moved into the dropdown that is not `aria-hidden`.
  */
 export function startAccountMenu(): void {
   injectStyles();
   onBatchSizeChange(syncOpenPanel);
 
   let frame: number | undefined;
-  const observer = new MutationObserver(() => {
+  let menuRoot: Element | null = null;
+  const menuObserver = new MutationObserver(() => scheduleEnsure());
+  const popupSubtreeObserver = new MutationObserver(() => scheduleEnsure());
+
+  const scheduleEnsure = (): void => {
     if (frame !== undefined) return;
     frame = requestAnimationFrame(() => {
       frame = undefined;
-      ensurePanel();
+      observeAccountMenu();
+      if (ensurePanel()) popupSubtreeObserver.disconnect();
     });
-  });
-  whenAvailable(SELECTORS.popupContainer, (popup) => {
-    observer.observe(popup, {
-      childList: true,
-      subtree: true,
-    });
+  };
+
+  const observeAccountMenu = (): void => {
+    if (menuRoot && !menuRoot.isConnected) {
+      menuObserver.disconnect();
+      menuRoot = null;
+    }
+    const sections = findOpenAccountMenuSections();
+    const menu = sections?.closest(SELECTORS.accountMenuRenderer) ?? null;
+    if (menu === menuRoot) return;
+    menuObserver.disconnect();
+    menuRoot = menu;
+    if (!menu) return;
+    menuObserver.observe(menu, { childList: true, subtree: true });
+  };
+
+  const watchPopupUntilMenu = (popup: Element): void => {
+    popupSubtreeObserver.disconnect();
+    popupSubtreeObserver.observe(popup, { childList: true, subtree: true });
+    scheduleEnsure();
+  };
+
+  const onTopbarMenuClick = (event: Event): void => {
+    if (!eventComesFromTopbarMenuButton(event)) return;
+    const popup = document.querySelector(SELECTORS.popupContainer);
+    if (popup) watchPopupUntilMenu(popup);
+  };
+
+  const onTopbarMenuKey = (event: KeyboardEvent): void => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    onTopbarMenuClick(event);
+  };
+
+  window.addEventListener('click', onTopbarMenuClick, true);
+  window.addEventListener('keydown', onTopbarMenuKey, true);
+
+  whenAvailable(SELECTORS.popupContainer, () => {
+    observeAccountMenu();
     ensurePanel();
   });
   ensurePanel();
 }
 
-function ensurePanel(): void {
-  const sections = document.querySelector(SELECTORS.accountMenuSections);
-  if (!sections) return;
-
-  let panel = sections.querySelector<HTMLElement>(`#${PANEL_ID}`);
-  if (!panel) {
-    panel = createPanel();
-    sections.prepend(panel);
+function eventComesFromTopbarMenuButton(event: Event): boolean {
+  for (const node of event.composedPath()) {
+    if (node instanceof Element && node.matches(SELECTORS.topbarMenuButton)) return true;
   }
+  return false;
+}
+
+/**
+ * The popup container can keep more than one account menu. Closed dropdowns
+ * stay in the DOM with `aria-hidden="true"`; inserting into the first match
+ * leaves the visible menu (e.g. on watch or Discover) without sliders.
+ */
+function findOpenAccountMenuSections(): HTMLElement | null {
+  for (const sections of document.querySelectorAll<HTMLElement>(SELECTORS.accountMenuSections)) {
+    if (isOpenAccountMenu(sections)) return sections;
+  }
+  return null;
+}
+
+function isOpenAccountMenu(sections: Element): boolean {
+  const dropdown = sections.closest(SELECTORS.popupDropdown);
+  if (dropdown?.getAttribute('aria-hidden') === 'true') return false;
+  if (dropdown?.hasAttribute('hidden')) return false;
+  const container = sections.closest('#container');
+  if (container?.hasAttribute('hidden')) return false;
+  return true;
+}
+
+/** Returns true when the panel is in the menu the user can see. */
+function ensurePanel(): boolean {
+  const sections = findOpenAccountMenuSections();
+  if (!sections) return false;
+
+  let panel = document.getElementById(PANEL_ID);
+  if (!panel) panel = createPanel();
+  if (sections.firstElementChild !== panel) sections.prepend(panel);
   syncPanel(panel);
+  return true;
 }
 
 function syncOpenPanel(): void {
