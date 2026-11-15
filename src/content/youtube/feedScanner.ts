@@ -10,7 +10,7 @@ const CONTAINER_SELECTOR: Record<LimitedFeedPageType, string> = {
   subscriptions: SELECTORS.subscriptionsPage,
 };
 
-export function findFeedContainer(pageType: LimitedFeedPageType): HTMLElement | null {
+function findFeedContainer(pageType: LimitedFeedPageType): HTMLElement | null {
   return document.querySelector<HTMLElement>(CONTAINER_SELECTOR[pageType]);
 }
 

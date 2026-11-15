@@ -87,7 +87,7 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 - **Feed scanning:** On Home and Discover only, a `MutationObserver` watches the grid's `#contents` (not the whole `ytd-browse` page) and re-scans as cards render and as YouTube appends more. `subtree` stays on so ads and Shorts can be reclassified when their inner markers appear. Search is left native (no observer). Scans run at most once per animation frame (before paint). The observer is disconnected on every navigation. No observer runs on other pages. The limiter walks `#contents` children once per scan: classify, count videos, and toggle `yti-revealed`.
 - **Feed limit (Home and Subscriptions):** Only real video cards count toward the limit; ads after the last shown video are hidden too. Limiter CSS is injected at startup and is page-scoped (`ytd-browse[page-subtype=home|subscriptions]:not([hidden])`), so the grid hides unrevealed items as soon as it paints, without a class on `#contents`. Cards YouTube appends stay hidden until the next scan marks them revealed. Infinite scroll is stopped by hiding the continuation with `display: none`: a hidden element never intersects the viewport, so YouTube never fetches. The continuation is shown only while fewer videos are loaded than the current limit, so YouTube fetches just enough. Styles are injected from TypeScript so they can use `SELECTORS`.
 - **Shelves and Shorts on Home and Discover:** Page-scoped CSS hides shelf rows (`ytd-rich-section-renderer`) and Shorts cards (`:has` the Shorts lockup / `/shorts/` link) on those grids as soon as they exist. The feed limiter also never marks them revealed, so they never count toward the limit.
-- **Startup vs storage:** CSS, sidebar, account menu, watch-page hiding, and click intercepts start immediately with the default batch size (9). `chrome.storage.local.get` runs after those listeners are registered; if a saved size differs, `loadBatchSizes` notifies the same listeners as a slider change. Redirects still run before anything else.
+- **Startup vs storage:** CSS, sidebar, account menu, watch-page hiding, and click intercepts start immediately with the default batch size (9). `chrome.storage.local.get` runs after those listeners are registered; if a saved size differs, `loadBatchSizes` notifies the same listeners as a slider change. A size this tab already changed while that read was in flight is left as-is, so a slow `get` cannot overwrite a slider move. Redirects still run before anything else.
 - **Shorts to watch player:** Clicks on `a[href^="/shorts/"]` are intercepted in the capture phase on `window` and load `/watch?v=<id>` with `location.assign` (a full page load: there is no documented way to start an in-app navigation without a link on screen). Any page that is still a `/shorts/` URL, at startup or after an in-app navigation, is redirected with `location.replace`, so the Shorts URL stays out of history. Modified clicks are not intercepted; the new tab redirects on load.
 - **Load More state:** The number of videos shown is kept per page in memory. Back/Forward restores it; any other navigation to the page resets it to that page's batch size (default 9). The button label is "Load N More". The button is removed when all loaded videos are shown and YouTube has no continuation. Moving that page's slider sets the shown count to the new size immediately.
 - **Batch size setting:** `src/content/accountMenu.ts` prepends a panel with two range inputs (Home, Discover) to the account menu's `#sections`. The menu is `ytd-multi-page-menu-renderer[menu-style="multi-page-menu-style-type-system"]` — the avatar menu when signed in, and the menu the settings gear opens when signed out. Submenus are a nested renderer without that `menu-style`, and YouTube sets `hidden` on the root `#container` while one is open, so the sliders stay on the root page. YouTube builds the menu lazily (nested in the popup host, often by filling an existing dropdown), so watching the popup container's direct children is not enough. Opening the avatar or settings-gear button (on any page) arms a short-lived subtree observer on `ytd-popup-container` until the sliders are in the **open** dropdown (`tp-yt-iron-dropdown` without `aria-hidden="true"`). Closed leftovers stay in the DOM after Home; inserting into `querySelector`'s first match would hide the sliders on watch and Discover. After the panel is in the visible menu, only that renderer is observed, so hover tooltips do not keep the panel code awake. Values live in `chrome.storage.local` (`batchSizeSubscriptions`, `batchSizeDiscover`). This tab updates itself in `setBatchSize`; `storage.onChanged` applies writes from other tabs and ignores the echo of our own write. Slider chrome is grayscale (track and thumb follow `html[dark]`); ticks are one mark per step from 3–30 with only the endpoints labeled.
@@ -135,6 +135,7 @@ Preserve YouTube's familiar interface and existing functionality wherever possib
 | — | Post-MVP: batch size | Complete |
 | — | Post-MVP: startup smoothness | Complete |
 | — | Post-MVP: narrower observers | Complete |
+| — | Post-MVP: code hygiene | Complete |
 
 ## Progress
 
@@ -202,7 +203,7 @@ Detection only; YouTube's page is not modified.
 
 ## Current Milestone
 
-None. MVP and the post-MVP batch-size, startup-smoothness, and narrower-observer work are complete.
+None. MVP and the post-MVP batch-size, startup-smoothness, narrower-observer, and code-hygiene work are complete.
 
 ### Post-MVP — Batch size — Complete
 
@@ -225,6 +226,14 @@ None. MVP and the post-MVP batch-size, startup-smoothness, and narrower-observer
 - Feed observer watches the grid `#contents`, not `ytd-browse`. One pass over those children classifies items and applies `yti-revealed`.
 - Account menu: opening the avatar / settings-gear button on any page arms a short-lived subtree observer until the sliders are in the open dropdown, not a leftover closed menu.
 - Manually verified by the user: Home / Discover / watch still work; avatar sliders appear on Home, Discover, and watch pages.
+
+### Post-MVP — Code hygiene — Complete
+
+- Removed unused Milestone 2 selectors (`searchPage`, `searchCard`, `shortsShelf`) from `selectors.ts`; Home and Discover shelf hiding still uses `gridSection` only.
+- Removed unused `isFeedPage` / `FeedPageType`; `getPageType` still classifies search for navigation and redirects.
+- `findFeedContainer` is private to `feedScanner.ts`.
+- `loadBatchSizes` skips applying storage for a page if that page's in-memory size changed while `chrome.storage.local.get` was in flight, so a slow read cannot undo an early slider move.
+- Verified: type check passes.
 
 ## Development Principle
 

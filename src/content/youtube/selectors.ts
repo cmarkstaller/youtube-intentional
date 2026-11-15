@@ -14,10 +14,9 @@ export const SELECTORS = {
   /** Present when YouTube's dark theme is active. */
   darkTheme: 'html[dark]',
 
-  /** Visible page containers, one per page type we care about. Discover is YouTube's Home page. */
+  /** Visible page containers. Discover is YouTube's Home page. Search is left native. */
   discoverPage: 'ytd-browse[page-subtype="home"]:not([hidden])',
   subscriptionsPage: 'ytd-browse[page-subtype="subscriptions"]:not([hidden])',
-  searchPage: 'ytd-search:not([hidden])',
 
   /**
    * Related / suggested videos on a watch page. Lives in the side column on
@@ -38,10 +37,6 @@ export const SELECTORS = {
   /** A full-width row in the Home / Subscriptions grid that holds a shelf (Shorts, news, etc.). */
   gridSection: 'ytd-rich-section-renderer',
 
-  /** Top-level cards in search results. */
-  searchCard:
-    'ytd-item-section-renderer > #contents > :is(ytd-video-renderer, yt-lockup-view-model)',
-
   /** Element YouTube uses to trigger loading the next batch (infinite scroll). */
   continuation: 'ytd-continuation-item-renderer',
 
@@ -51,17 +46,6 @@ export const SELECTORS = {
 
   /** Markers inside a card that identify it as an ad. */
   adCardMarker: 'ytd-ad-slot-renderer',
-
-  /**
-   * Shorts shelves. `grid-shelf-view-model` is a generic shelf, so it only
-   * counts when it contains Shorts cards. The shelf title is localized and
-   * is deliberately not used.
-   */
-  shortsShelf: [
-    'ytd-rich-shelf-renderer[is-shorts]',
-    'ytd-reel-shelf-renderer',
-    'grid-shelf-view-model:has(ytm-shorts-lockup-view-model, ytm-shorts-lockup-view-model-v2)',
-  ].join(', '),
 
   /** Any link that opens a Short in YouTube's Shorts player. */
   shortsLink: 'a[href^="/shorts/"]',

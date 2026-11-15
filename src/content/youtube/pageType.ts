@@ -4,8 +4,6 @@
  */
 export type PageType = 'discover' | 'subscriptions' | 'search' | 'watch' | 'shorts' | 'other';
 
-export type FeedPageType = Extract<PageType, 'discover' | 'subscriptions' | 'search'>;
-
 /** Classifies a youtube.com URL. Uses the URL only, never YouTube internals. */
 export function getPageType(url: Pick<URL, 'pathname'>): PageType {
   const path = url.pathname;
@@ -16,8 +14,4 @@ export function getPageType(url: Pick<URL, 'pathname'>): PageType {
   if (path === '/watch') return 'watch';
   if (path.startsWith('/shorts/')) return 'shorts';
   return 'other';
-}
-
-export function isFeedPage(pageType: PageType): pageType is FeedPageType {
-  return pageType === 'discover' || pageType === 'subscriptions' || pageType === 'search';
 }

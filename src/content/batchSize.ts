@@ -61,10 +61,14 @@ export function onBatchSizeChange(listener: (page: BatchPage, size: number) => v
  */
 export async function loadBatchSizes(): Promise<void> {
   try {
+    // A slider move during this await already wrote `current`. Applying the
+    // stale read would put that page back to the value from before the move.
+    const snapshot = { ...current };
     const stored = await chrome.storage.local.get(PAGES.map((page) => STORAGE_KEY[page]));
     const next = { ...current };
     const changed: Array<{ page: BatchPage; size: number }> = [];
     for (const page of PAGES) {
+      if (current[page] !== snapshot[page]) continue;
       const size = normalizeBatchSize(stored[STORAGE_KEY[page]]);
       if (next[page] === size) continue;
       next[page] = size;
