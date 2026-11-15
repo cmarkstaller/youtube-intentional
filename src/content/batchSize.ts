@@ -1,5 +1,5 @@
 /**
- * How many videos Home and Discover show before "Load More".
+ * How many videos Subscriptions and Discover show before "Load More".
  *
  * Each page has its own value, saved in `chrome.storage.local` so it survives
  * reloads and is shared across tabs. Writes go through here; `onChanged`

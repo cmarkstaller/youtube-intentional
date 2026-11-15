@@ -9,11 +9,7 @@ interface Icon {
   filled: string;
 }
 
-/** Material Icons "home" and "explore", Apache License 2.0. */
-const HOME_ICON: Icon = {
-  outlined: 'M12 5.69l5 4.5V18h-2v-6H9v6H7v-7.81l5-4.5M12 3L2 12h3v8h6v-6h2v6h6v-8h3L12 3z',
-  filled: 'M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z',
-};
+/** Material Icons "explore", Apache License 2.0. Subscriptions keeps YouTube's icon. */
 const DISCOVER_ICON: Icon = {
   outlined:
     'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-5.5-2.5l7.51-3.49L17.5 6.5 9.99 9.99 6.5 17.5zm5.5-6.6c.61 0 1.1.49 1.1 1.1s-.49 1.1-1.1 1.1-1.1-.49-1.1-1.1.49-1.1 1.1-1.1z',
@@ -23,7 +19,7 @@ const DISCOVER_ICON: Icon = {
 
 /** YouTube's sidebar entries and the label each one is shown with. */
 const LABELS: ReadonlyArray<{ entry: string; label: string }> = [
-  { entry: SELECTORS.guideSubscriptionsEntry, label: 'Home' },
+  { entry: SELECTORS.guideSubscriptionsEntry, label: 'Subscriptions' },
   { entry: SELECTORS.guideHomeEntry, label: 'Discover' },
 ];
 
@@ -56,7 +52,7 @@ function iconMask(path: string): string {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}") center / 24px 24px no-repeat`;
 }
 
-/** Hides Shorts and moves Home (YouTube's Subscriptions entry) above Discover. */
+/** Hides Shorts and moves Subscriptions above Discover. */
 const STYLES = `
 ${SELECTORS.guideShortsEntry} {
   display: none !important;
@@ -68,17 +64,17 @@ ${SELECTORS.guideSectionItems} {
 ${SELECTORS.guideSubscriptionsEntry} {
   order: -1;
 }
-${iconRule(SELECTORS.guideSubscriptionsEntry, HOME_ICON)}
 ${iconRule(SELECTORS.guideHomeEntry, DISCOVER_ICON)}
 `;
 
 /**
- * Turns YouTube's native sidebar into Home (Subscriptions), Discover, You.
+ * Turns YouTube's native sidebar into Subscriptions, Discover, You.
  *
  * YouTube's own entries are reused, so their links, navigation, and "current
- * page" highlight keep working. Layout and icons are CSS. Labels are text, so
- * they are rewritten in place; YouTube renders the sidebar lazily and can
- * re-render it, so observers on the guide drawer and mini-guide re-apply them.
+ * page" highlight keep working. Layout and the Discover icon are CSS;
+ * Subscriptions keeps YouTube's icon. Labels are text, so they are rewritten
+ * in place; YouTube renders the sidebar lazily and can re-render it, so
+ * observers on the guide drawer and mini-guide re-apply them.
  * Those trees are far smaller than `ytd-app`, so feed mutations do not wake
  * the label rewriter. Entry nodes are cached until they disconnect.
  */
@@ -128,7 +124,7 @@ export function startSidebar(): void {
   });
 }
 
-/** Cached Home / Discover entries; empty arrays mean "look up again". */
+/** Cached Subscriptions / Discover entries; empty arrays mean "look up again". */
 let cachedEntries: Element[][] = LABELS.map(() => []);
 
 /** Only writes values that differ, so its own changes don't trigger it again. */

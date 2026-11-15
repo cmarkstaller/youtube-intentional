@@ -1,6 +1,6 @@
 /**
  * `discover` is YouTube's Home page (`/`), shown to the user as Discover. The
- * user's Home is the `subscriptions` page.
+ * default feed is the `subscriptions` page, shown as Subscriptions.
  */
 export type PageType = 'discover' | 'subscriptions' | 'search' | 'watch' | 'shorts' | 'other';
 

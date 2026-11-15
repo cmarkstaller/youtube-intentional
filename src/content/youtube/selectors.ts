@@ -69,7 +69,7 @@ export const SELECTORS = {
   guideHomeEntry:
     ':is(ytd-guide-entry-renderer, ytd-mini-guide-entry-renderer):has(> a#endpoint[href="/"])',
 
-  /** YouTube's Subscriptions sidebar entries, shown as Home. */
+  /** YouTube's Subscriptions sidebar entries (native label and icon). */
   guideSubscriptionsEntry:
     ':is(ytd-guide-entry-renderer, ytd-mini-guide-entry-renderer):has(> a#endpoint[href="/feed/subscriptions"])',
 

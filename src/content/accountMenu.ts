@@ -14,7 +14,7 @@ const STYLE_ID = 'yti-account-menu-styles';
 const PANEL_ID = 'yti-batch-settings';
 
 const ROWS: ReadonlyArray<{ page: BatchPage; label: string }> = [
-  { page: 'subscriptions', label: 'Home' },
+  { page: 'subscriptions', label: 'Subscriptions' },
   { page: 'discover', label: 'Discover' },
 ];
 
@@ -153,7 +153,7 @@ ${SELECTORS.darkTheme} #${PANEL_ID} .yti-batch-ends {
 `;
 
 /**
- * Puts a Home slider and a Discover slider at the top of YouTube's account
+ * Puts a Subscriptions slider and a Discover slider at the top of YouTube's account
  * menu. YouTube creates that menu lazily, nested inside `ytd-popup-container`
  * (often by filling a dropdown that already exists), so watching the popup
  * host's direct children is not enough. Opening the avatar / settings-gear
