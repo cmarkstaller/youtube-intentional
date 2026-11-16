@@ -1,6 +1,6 @@
-# YouTube Intentional
+# Unscroll for Youtube
 
-A Chrome extension (Manifest V3) that makes YouTube a more intentional experience by replacing algorithm-driven infinite scrolling with finite, deliberate browsing, while preserving YouTube's native interface.
+Unscroll is a Chrome extension (Manifest V3) that replaces algorithm-driven infinite scrolling with finite, deliberate browsing on Youtube, while preserving Youtube's native interface.
 
 See [PROJECT.md](PROJECT.md) for the product vision, requirements, and roadmap.
 

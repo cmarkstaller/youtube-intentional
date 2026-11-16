@@ -12,7 +12,7 @@ export default defineConfig({
     lib: {
       entry: 'src/content/main.ts',
       formats: ['iife'],
-      name: 'YouTubeIntentional',
+      name: 'UnscrollForYoutube',
       fileName: () => 'content.js',
     },
   },

@@ -1,8 +1,8 @@
 {
-  "name": "youtube-intentional",
+  "name": "unscroll-for-youtube",
   "version": "1.0.0",
   "private": true,
-  "description": "Chrome extension that makes YouTube a more intentional experience.",
+  "description": "Unscroll for Youtube — finite browsing on Youtube instead of endless scrolling.",
   "type": "module",
   "scripts": {
     "build": "npm run typecheck && vite build",

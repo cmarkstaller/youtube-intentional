@@ -1,8 +1,8 @@
-# YouTube Intentional — Project Specification
+# Unscroll for Youtube — Project Specification
 
 ## Vision
 
-Make YouTube a more intentional experience by replacing algorithm-driven infinite scrolling with controlled, finite browsing.
+Unscroll makes Youtube a more deliberate place to watch by replacing algorithm-driven infinite scrolling with controlled, finite browsing.
 
 Preserve YouTube's familiar interface and existing functionality wherever possible.
 
@@ -146,7 +146,7 @@ Initialized the project and verified content-script injection.
 
 - TypeScript (strict) + Vite project with `build`, `typecheck`, and `watch` scripts.
 - Manifest V3 extension with one content script matching `https://www.youtube.com/*`.
-- A temporary "YouTube Intentional active" badge (bottom-left, fades out after ~4 seconds) plus a console log confirm the script runs. The badge is a development aid and will be removed later.
+- A temporary "Unscroll active" badge (bottom-left, fades out after ~4 seconds) plus a console log confirm the script runs. The badge is a development aid and will be removed later.
 - README with install, build, and testing instructions; `.gitignore`; Git repository initialized.
 - Verified: type check and build pass; in Chrome 157 the extension loaded, the badge appeared on youtube.com and removed itself, and the console log appeared.
 - Manually verified by the user via `chrome://extensions` > Load unpacked in their own Chrome profile.
@@ -193,13 +193,13 @@ Detection only; YouTube's page is not modified.
 
 ### Milestone 6 — Complete
 
-- Removed the temporary "YouTube Intentional active" badge and all navigation / feed debug console logging.
+- Removed the temporary "Unscroll active" badge and all navigation / feed debug console logging.
 - Watch pages hide suggested / related videos beside (or below) the player; playlists and live chat are unchanged.
 - README and manifest updated for the MVP release (`1.0.0`).
 - Decisions made at the start of the milestone: hide only `#related` (not the whole secondary column) so playlist and chat stay; no new permissions or packaging pipeline beyond the existing `dist/` Load unpacked flow.
 - New module `src/content/watchRelated.ts`; removed `activeIndicator.ts` and `debugLog.ts`; new selector `watchRelated`.
 - Verified: type check and build pass.
-- Manual verification for the user: reload the unpacked `dist/` extension, then confirm Home / Discover / sidebar / Shorts behavior still match Milestone 5, that watch pages show no related list while a playlist or chat still appears when applicable, and that DevTools shows no `[YouTube Intentional]` logs or active badge.
+- Manual verification for the user: reload the unpacked `dist/` extension, then confirm Home / Discover / sidebar / Shorts behavior still match Milestone 5, that watch pages show no related list while a playlist or chat still appears when applicable, and that DevTools shows no `[Unscroll]` logs or active badge.
 - Post-MVP polish: on wide watch layouts, after hiding `#related`, the player column is centered at the same width it had in the two-column layout (`#secondary` is hidden only when `#playlist` and live chat are absent). Theater mode, fullscreen, single-column breakpoints, playlists, and live chat are unchanged. Manually verified by the user on a normal watch page.
 
 ## Current Milestone

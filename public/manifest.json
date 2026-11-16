@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "YouTube Intentional",
+  "name": "Unscroll for Youtube",
   "version": "1.0.0",
-  "description": "Make YouTube a more intentional experience with finite, deliberate browsing.",
+  "description": "Finite, deliberate browsing on Youtube instead of endless scrolling.",
   "permissions": ["storage"],
   "content_scripts": [
     {
